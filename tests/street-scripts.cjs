@@ -57,8 +57,8 @@ const main = positioned.texts[0];
 main.textContent = 'Main';
 const left = app.createStreetScript(main, 'superscript');
 const right = app.createStreetScript(main, 'subscript');
-assert.equal(left.textContent, 'Bch');
-assert.equal(right.textContent, 'Bch');
+assert.equal(left.textContent, 'St');
+assert.equal(right.textContent, 'St');
 assert.equal(left.scriptSide, 'right');
 left.scriptSide = 'left';
 main.scriptElements.push(left, right);
@@ -72,7 +72,7 @@ assert.equal(restoredPositioned.streetSigns[0].texts[0].scriptElements[0].script
 assert.equal(restoredPositioned.streetSigns[0].texts[0].scriptElements[1].scriptSide, 'right');
 delete left.scriptSide;
 assert.equal(app.restoreProject(JSON.stringify(scene)).streetSigns[0].texts[0].scriptElements[0].scriptSide, 'right');
-console.log('Bch defaults, left/right same-row placement and backward-compatible position restoration passed');
+console.log('St defaults, left/right same-row placement and backward-compatible position restoration passed');
 for (const side of ['left', 'right']) {
   const stacked = app.createStreetSign();
   const text = stacked.texts[0]; text.textContent = '24th Ave SW';

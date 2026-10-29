@@ -224,7 +224,7 @@
     get('templateEditorVariantFont').innerHTML = get('templateNewVariantFont').innerHTML = fonts;
     function applyFont(font) {
       if (!font) return;
-      for (const arm of app.mastArmProjects(project)) for (const sign of arm.streetSigns ?? []) for (const row of sign.texts) for (const text of [row, ...(row.scriptElements ?? [])]) text.fontFamily = font;
+      for (const arm of app.mastArmProjects(project)) for (const sign of arm.streetSigns ?? []) for (const row of sign.texts) for (const text of [row, ...app.streetTextChildren(row)]) text.fontFamily = font;
       app.refresh();
     }
     get('templateEditorApplyFont').addEventListener('click', () => { if (editing) applyFont(get('templateEditorVariantFont').value); });

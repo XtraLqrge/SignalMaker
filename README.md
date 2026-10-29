@@ -16,7 +16,7 @@ Projects are saved locally in your browser. Regulatory Signs supports uploading 
 
 ## License and attribution
 
-SignalMaker derives its UI from [SignMaker](https://github.com/JKPotato-Computer/SignMaker), including the [SignMaker v2.2](https://github.com/DuskDarf1/SignMaker), and [SignMaker v2.19 development projects](https://github.com/XtraLqrge/SignMaker). The inherited project history and GNU GPL version 3 license are retained; see [LICENSE](LICENSE).
+SignalMaker derives its UI from the [SignMaker v2.2](https://github.com/DuskDarf1/SignMaker) and [SignMaker v2.19 development projects](https://github.com/XtraLqrge/SignMaker). The inherited project history and GNU GPL version 3 license are retained; see [LICENSE](LICENSE).
 
 Credit to [XtraLqrge](https://github.com/XtraLqrge) for the search function in the regulatory sign selector, the icon upload feature, the clear all button, the click-to-open menu action, the undo/redo feature, custom regulatory sign uploads, template saves, and mast-mounted street signs.
 

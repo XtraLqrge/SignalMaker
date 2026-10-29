@@ -44,7 +44,7 @@ assert.equal(app.streetSignMarkup(duplicate, app.streetSignGeometry(duplicate)),
 // separately registered image catalog that could become stale after travel.
 const buttons = Object.fromEntries(['undoButton', 'redoButton'].map(id => [id, { setAttribute() {}, addEventListener() {} }]));
 context.navigator = { platform: 'MacIntel' };
-context.document = { getElementById: id => buttons[id], addEventListener() {}, activeElement: null };
+context.document = { querySelectorAll: () => [], getElementById: id => buttons[id], addEventListener() {}, activeElement: null };
 vm.runInContext(fs.readFileSync(path.join(root, 'js/history.js'), 'utf8'), context);
 app.startHistory(restored, { onRestore() {}, report() {} });
 app.runWithUndo(() => { restored.streetSigns.length = 0; });

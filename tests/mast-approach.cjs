@@ -88,7 +88,7 @@ for (const index of [0, 1]) {
 console.log('Mirrored head dragging and pole-height coordinate mapping passed');
 const buttons = Object.fromEntries(['undoButton', 'redoButton'].map(id => [id, { setAttribute() {}, addEventListener() {} }]));
 context.navigator = { platform: 'MacIntel' };
-context.document = { getElementById: id => buttons[id], addEventListener() {}, activeElement: null };
+context.document = { querySelectorAll: () => [], getElementById: id => buttons[id], addEventListener() {}, activeElement: null };
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js/history.js'), 'utf8'), context);
 app.syncMastArms(project);
 app.startHistory(project, { onRestore() {}, report() {} });

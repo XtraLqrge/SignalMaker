@@ -192,7 +192,9 @@
 .mastScene .previewStreetSign { cursor: grab; touch-action: none; }
 .previewStreetSign.movableSign { cursor: grab; touch-action: none; }
 #regulatorySearchStatus { margin: 0.25rem 0; font-size: 0.75rem; }
-.previewStreetSign svg { display: block; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.previewStreetSign svg { display: block; width: 100%; height: 100%; overflow: visible; pointer-events: auto; }
+.previewStreetSign .streetTextTarget, .previewStreetSign .streetTextArrow { cursor: pointer; }
+.previewStreetSign .streetTextHit { pointer-events: all; }
 .previewStreetSign:focus-visible { outline: 2px solid var(--textColor); }
 #headContainer.signScene { display: block; position: relative; }
 .signScene .previewHead { position: absolute; }

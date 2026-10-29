@@ -29,14 +29,62 @@
     : support.type === 'span-wire' && isRegulatorySign(sign) ? 'spanPosition' : 'armPosition';
   const streetSignPosition = (sign, support) => sign[signPositionKey(sign, support)];
   function createStreetText() {
-    return { id: uid(), scriptElements: [], selectedElementIndex: 0, textContent: 'Street Name', fontFamily: 'Series EM', fontSize: 200, lineHeight: 75,
+    return { id: uid(), scriptElements: [], affixElements: [], selectedElementIndex: 0, textContent: 'Street Name', fontFamily: 'Series EM', fontSize: 200, lineHeight: 75,
       arrow: 'none', arrowSize: 100, arrowSide: 'left', backgroundColor: 'Inherit', textColor: 'Match BG', spacing: 0, smallCapitals: false, alignment: 'Center', justification: 'Center',
       useNumeralFormatting: false, numeralFormattingSize: 120, useBannerFormatting: false, bannerFormattingSize: 100, bannerFirstLetterSize: 120 };
   }
-  const selectedStreetText = row => row.scriptElements?.[(row.selectedElementIndex ?? 0) - 1] ?? row;
+  const streetTextChildren = row => [...(row.scriptElements ?? []), ...(row.affixElements ?? [])];
+  const selectedStreetText = row => streetTextChildren(row)[(row.selectedElementIndex ?? 0) - 1] ?? row;
+  function selectStreetTextElement(sign, rowId, elementId) {
+    const rowIndex = sign.texts.findIndex(row => row.id === rowId);
+    if (rowIndex < 0) return false;
+    const row = sign.texts[rowIndex];
+    const childIndex = streetTextChildren(row).findIndex(element => element.id === elementId);
+    if (elementId !== row.id && childIndex < 0) return false;
+    sign.selectedTextIndex = rowIndex;
+    row.selectedElementIndex = elementId === row.id ? 0 : childIndex + 1;
+    return true;
+  }
   function createStreetScript(row, script) {
-    return { ...createStreetText(), textContent: 'Bch', scriptSide: 'right',
+    return { ...createStreetText(), textContent: 'St', scriptSide: 'right',
       fontFamily: row.fontFamily, fontSize: Math.max(50, row.fontSize * 0.6), textColor: row.textColor, script };
+  }
+  function createStreetAffix(row, affix, texts = [row]) {
+    const side = affix === 'prefix' ? 'left' : 'right';
+    const rowIndex = texts.indexOf(row);
+    const nearby = rowIndex < 0 ? [{ text: row, distance: 0 }]
+      : texts.map((text, index) => ({ text, distance: Math.abs(index - rowIndex) })).sort((a, b) => a.distance - b.distance);
+    let closest;
+    for (const { text } of nearby) {
+      const existing = (text.affixElements ?? []).filter(element => Number.isFinite(element.fontSize));
+      const sameSide = existing.filter(element => (element.affixSide ?? (element.affix === 'prefix' ? 'left' : 'right')) === side);
+      // Appending beside existing affixes puts the new one nearest the last on that side.
+      closest = (sameSide.length ? sameSide : existing).at(-1);
+      if (closest) break;
+    }
+    return { ...createStreetText(), textContent: affix === 'prefix' ? 'N' : 'St',
+      affix, affixSide: side,
+      fontFamily: row.fontFamily, fontSize: closest?.fontSize ?? Math.max(50, row.fontSize * 0.6), textColor: row.textColor };
+  }
+  function addStreetTextElement(row, type, texts = [row]) {
+    row.scriptElements ??= [];
+    row.affixElements ??= [];
+    const affix = ['prefix', 'suffix'].includes(type);
+    if (!affix && !['superscript', 'subscript'].includes(type)) return null;
+    const collection = affix ? row.affixElements : row.scriptElements;
+    if (collection.length >= 20) return null;
+    const element = affix ? createStreetAffix(row, type, texts) : createStreetScript(row, type);
+    collection.push(element);
+    row.selectedElementIndex = streetTextChildren(row).indexOf(element) + 1;
+    return element;
+  }
+  function removeStreetTextElement(row) {
+    const element = selectedStreetText(row);
+    if (element === row) return false;
+    const collection = element.affix ? row.affixElements : row.scriptElements;
+    collection.splice(collection.indexOf(element), 1);
+    row.selectedElementIndex = 0;
+    return true;
   }
   function createStreetSign(name = 'Street Sign 1') {
     return { id: uid(), name, mounting: 'free-swinging', spanSide: 'right', color: 'Green', corner: 'Sharp', borderRadius: 0,
@@ -60,7 +108,7 @@
     return { ...artwork, pixelWidth: artwork.width, pixelHeight: artwork.height,
       width: artwork.width * scale, height: artwork.height * scale };
   }
-  function restoreStreetText(value, allowScripts = true) {
+  function restoreStreetText(value, allowChildren = true) {
         const text = createStreetText();
         if (typeof value?.textContent === 'string') text.textContent = value.textContent.slice(0, 2000);
         text.fontFamily = choice(value?.fontFamily, fonts, 'Series EM');
@@ -75,14 +123,20 @@
         text.lineHeight = number(value?.lineHeight, 0, 300, 75);
         text.spacing = number(value?.spacing, 0, 20, 0);
         for (const key of ['numeralFormattingSize', 'bannerFormattingSize', 'bannerFirstLetterSize']) text[key] = number(value?.[key], 50, 150, text[key]);
-        if (allowScripts) {
+        if (allowChildren) {
           text.scriptElements = (Array.isArray(value?.scriptElements) ? value.scriptElements : []).slice(0, 20).map(raw => {
             const element = restoreStreetText(raw, false);
             element.script = raw?.script === 'subscript' ? 'subscript' : 'superscript';
             element.scriptSide = raw?.scriptSide === 'left' ? 'left' : 'right';
             return element;
           });
-          text.selectedElementIndex = number(value?.selectedElementIndex, 0, text.scriptElements.length, 0) | 0;
+          text.affixElements = (Array.isArray(value?.affixElements) ? value.affixElements : []).slice(0, 20).map(raw => {
+            const element = restoreStreetText(raw, false);
+            element.affix = raw?.affix === 'prefix' ? 'prefix' : 'suffix';
+            element.affixSide = choice(raw?.affixSide, ['left', 'right'], element.affix === 'prefix' ? 'left' : 'right');
+            return element;
+          });
+          text.selectedElementIndex = number(value?.selectedElementIndex, 0, streetTextChildren(text).length, 0) | 0;
         }
         return text;
   }
@@ -104,6 +158,7 @@
       sign.color = choice(raw.color, Object.keys(palette), 'Green');
       sign.corner = choice(raw.corner, ['Sharp', 'Round'], 'Sharp');
       sign.mounting = choice(raw.mounting, ['free-swinging', 'direct', 'mast'], 'free-swinging');
+      if (['free-swinging', 'direct'].includes(raw.armMounting)) sign.armMounting = raw.armMounting;
       sign.spanSide = raw.spanSide === 'left' ? 'left' : 'right';
       sign.icon = restoreStreetIcon(raw.icon);
       sign.iconSide = raw.iconSide === 'right' ? 'right' : 'left';
@@ -173,7 +228,9 @@
       const font = streetFont(text, sign);
       const lines = text.textContent.replace(/\\n/g, '\n').replace(/\\t/g, '\t').split('\n').map(line => textRuns(line, text, font));
       const baseSize = 10.5 * text.fontSize / 100;
-      const mainCap = Math.max(0, ...lines[0].map(run => run.size * (font.startsWith('Series ') ? 0.5690625 : font.startsWith('Clearview ') ? 0.69046875 : 0.7)));
+      const capFor = run => run.size * ((run.font ?? font).startsWith('Series ') ? 0.5690625 : (run.font ?? font).startsWith('Clearview ') ? 0.69046875 : 0.7);
+      const mainCaps = lines.map(runs => Math.max(0, ...runs.map(capFor)));
+      const mainCap = mainCaps[0];
       // Super/subscripts share a side column, with independent upper and
       // lower baselines. Reserve the wider lane once rather than adding both.
       const sides = { left: { superscript: [], subscript: [] }, right: { superscript: [], subscript: [] } };
@@ -198,7 +255,6 @@
       const leftRuns = [...sides.left.superscript, ...sides.left.subscript];
       const rightRuns = [...sides.right.superscript, ...sides.right.subscript].map(run => ({ ...run, offsetX: run.offsetX + mainEnd + gap }));
       lines[0] = [...leftRuns, ...mainRuns, ...rightRuns];
-      const capFor = run => run.size * ((run.font ?? font).startsWith('Series ') ? 0.5690625 : (run.font ?? font).startsWith('Clearview ') ? 0.69046875 : 0.7);
       for (const side of ['left', 'right']) {
         const scripts = lines[0].filter(run => run.element && (run.element.scriptSide === 'left' ? 'left' : 'right') === side);
         const upper = scripts.filter(run => run.element.script !== 'subscript');
@@ -210,8 +266,39 @@
           lower.forEach(run => { run.dy += clearance; });
         }
       }
-      const scriptAbove = Math.max(0, ...lines[0].filter(run => run.element).map(run => capFor(run) - run.dy - mainCap));
-      const scriptBelow = Math.max(0, ...lines[0].filter(run => run.element).map(run => run.dy + run.size * 0.18));
+      // Prefixes follow the first visible line and suffixes the last, retaining
+      // their chosen side and cap-center alignment independently of scripts.
+      const visibleLines = lines.map((runs, index) => runs.some(run => !run.element && run.content.trim()) ? index : -1).filter(index => index >= 0);
+      const affixes = lines.map(() => ({ left: [], right: [] }));
+      for (const element of text.affixElements ?? []) {
+        const content = element.textContent.replace(/\\n|\\t|[\r\n\t]/g, ' ');
+        if (!content) continue;
+        const lineIndex = element.affix === 'suffix' ? visibleLines[visibleLines.length - 1] ?? lines.length - 1 : visibleLines[0] ?? 0;
+        const affixFont = streetFont(element, sign);
+        const lane = affixes[lineIndex][element.affixSide === 'left' ? 'left' : 'right'];
+        let x = lane.length ? streetLineWidth(lane) + gap : 0;
+        for (const run of textRuns(content, element, affixFont)) {
+          const item = { ...run, element, font: affixFont, offsetX: x };
+          item.dy = (capFor(item) - mainCaps[lineIndex]) / 2;
+          lane.push(item);
+          x += run.width;
+        }
+      }
+      affixes.forEach((lanes, index) => {
+        if (!lanes.left.length && !lanes.right.length) return;
+        const leftWidth = streetLineWidth(lanes.left), blockWidth = streetLineWidth(lines[index]);
+        const leftSpace = leftWidth + (leftWidth && blockWidth ? gap : 0);
+        const rightStart = leftSpace + blockWidth + (leftWidth || blockWidth ? gap : 0);
+        let nextX = 0;
+        const block = lines[index].map(run => {
+          const offsetX = Number.isFinite(run.offsetX) ? run.offsetX : nextX;
+          nextX = offsetX + run.width;
+          return { ...run, offsetX: offsetX + leftSpace };
+        });
+        lines[index] = [...lanes.left, ...block, ...lanes.right.map(run => ({ ...run, offsetX: run.offsetX + rightStart }))];
+      });
+      const scriptAbove = Math.max(0, ...lines.flatMap((runs, index) => runs.filter(run => run.element).map(run => capFor(run) - run.dy - mainCaps[index])));
+      const scriptBelow = Math.max(0, ...lines.flat().filter(run => run.element).map(run => run.dy + run.size * 0.18));
       const lineHeight = baseSize * (text.lineHeight / 100 + 0.2);
       const artwork = streetArrows[text.arrow];
       const arrowLength = baseSize * 1.5 * number(text.arrowSize, 25, 300, 100) / 100;
@@ -296,8 +383,9 @@
     const direction = support.type === 'mast-arm' && support.side === 'left' ? -1 : 1;
     return app.supportPositionAtX(support, app.supportXAtPosition(support, position) + direction * dx / scale);
   }
-  function streetSignMarkup(sign, geometry) {
+  function streetSignMarkup(sign, geometry, interactive = false) {
     const esc = app.escape;
+    const targetAttributes = (row, element) => `data-street-row-id="${esc(row.id)}" data-street-element-id="${esc(element.id)}"`;
     if (geometry.regulatory) {
       if (isBlankOut(sign)) {
         const { width, height } = geometry;
@@ -343,7 +431,7 @@
           const arrow = row.arrow;
           const cx = x + (text.arrowSide === 'right' ? textWidth + arrow.gap : 0) + arrow.length / 2;
           const cy = y + index * row.lineHeight + (row.height - (row.lines.length - 1) * row.lineHeight) / 2;
-          result += `<g class="streetTextArrow" transform="translate(${cx} ${cy}) rotate(${text.arrowSide === 'right' ? 90 : -90}) scale(${arrow.length / arrow.height}) translate(${-arrow.width / 2} ${-arrow.height / 2})" fill="${color}" fill-rule="evenodd" stroke-linejoin="round"><path d="${arrow.path}"/></g>`;
+          result += `<g class="streetTextArrow"${interactive ? ` ${targetAttributes(text, text)}` : ''} transform="translate(${cx} ${cy}) rotate(${text.arrowSide === 'right' ? 90 : -90}) scale(${arrow.length / arrow.height}) translate(${-arrow.width / 2} ${-arrow.height / 2})" fill="${color}" fill-rule="evenodd" stroke-linejoin="round"><path d="${arrow.path}"/></g>`;
           if (text.arrowSide === 'left') x += row.arrowSpace;
         }
         const lineX = x;
@@ -353,7 +441,14 @@
           const runFont = run.font ?? font;
           const family = runFont === 'Arial Bold' ? 'Arial' : runFont;
           const runColor = element.textColor === 'Match BG' ? contrast(element.backgroundColor === 'Inherit' ? sign.color : element.backgroundColor) : palette[element.textColor];
-          result += `<text xml:space="preserve" x="${runX}" y="${baseline + (run.dy ?? 0)}" data-script="${run.element?.script ?? 'normal'}" font-family="${esc(`"${family}", "Series EM"`)}" font-size="${run.size}"${element.smallCapitals ? ' font-variant="small-caps"' : ''}${runFont === 'Arial Bold' ? ' font-weight="bold"' : ''} fill="${runColor}">${esc(run.content)}</text>`;
+          if (interactive) {
+            // A transparent rectangle makes the whole word selectable, including
+            // spaces and letter counters. Exports use only the original artwork.
+            const capHeight = run.size * (runFont.startsWith('Series ') ? 0.5690625 : runFont.startsWith('Clearview ') ? 0.69046875 : 0.7);
+            result += `<g class="streetTextTarget" ${targetAttributes(text, element)}><rect class="streetTextHit" x="${runX}" y="${baseline + (run.dy ?? 0) - capHeight}" width="${run.width}" height="${capHeight + run.size * 0.18}" fill="transparent"/>`;
+          }
+          result += `<text xml:space="preserve" x="${runX}" y="${baseline + (run.dy ?? 0)}" data-script="${run.element?.script ?? 'normal'}"${run.element?.affix ? ` data-affix="${run.element.affix}"` : ''} font-family="${esc(`"${family}", "Series EM"`)}" font-size="${run.size}"${element.smallCapitals ? ' font-variant="small-caps"' : ''}${runFont === 'Arial Bold' ? ' font-weight="bold"' : ''} fill="${runColor}">${esc(run.content)}</text>`;
+          if (interactive) result += '</g>';
           x += run.width;
         }
       });
@@ -363,7 +458,7 @@
   }
   async function embedStreetSignFonts(svg, project) {
     if (app.mastArmProjects) project = { ...project, streetSigns: app.mastArmProjects(project).flatMap(arm => arm.streetSigns ?? []) };
-    const used = new Set((project.streetSigns ?? []).filter(sign => !isRegulatorySign(sign)).flatMap(sign => sign.texts.flatMap(text => [text, ...(text.scriptElements ?? [])].map(element => streetFont(element, sign)))));
+    const used = new Set((project.streetSigns ?? []).filter(sign => !isRegulatorySign(sign)).flatMap(sign => sign.texts.flatMap(text => [text, ...streetTextChildren(text)].map(element => streetFont(element, sign)))));
     const styles = [...used].filter(font => fontFiles[font]).map(font => {
       const data = app.streetFontData?.[font];
       if (!data) throw new Error('Street sign font unavailable');
@@ -371,7 +466,7 @@
     });
     return styles.length ? svg.replace(/(<svg\b[^>]*>)/, `$1<defs><style>${styles.join('')}</style></defs>`) : svg;
   }
-  Object.assign(app, { streetPalette: palette, streetFonts: fonts, streetFontFiles: fontFiles, createStreetText, createStreetScript, selectedStreetText, createStreetSign,
+  Object.assign(app, { streetPalette: palette, streetFonts: fonts, streetFontFiles: fontFiles, createStreetText, createStreetScript, createStreetAffix, streetTextChildren, addStreetTextElement, removeStreetTextElement, selectedStreetText, selectStreetTextElement, createStreetSign,
     regulatoryDesign, isRegulatorySign, canBlankOut, isBlankOut, signCanMove, isMastMountedSign, streetSignPosition, streetSignDragPosition,
     restoreStreetIcon, restoreRegulatoryImage, restoreStreetSigns, streetFont, streetSignGeometry, streetSignBounds, setStreetSignPosition, ensureStreetSignPositions, streetSignMarkup, embedStreetSignFonts });
 })();

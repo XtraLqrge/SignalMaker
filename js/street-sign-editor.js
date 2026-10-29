@@ -64,7 +64,7 @@
       if (!signs.some(sign => sign.id === project.selectedStreetSignId)) {
         project.selectedStreetSignId = signs.find(sign => sign.id === lastSelection[key])?.id ?? signs[0]?.id ?? null;
       }
-      get(id).append(get('signEditorContent'));
+      if (get('signEditorContent').parentElement !== get(id)) get(id).append(get('signEditorContent'));
       get('addStreetSign').textContent = regulatoryMode ? 'Add Regulatory Sign' : 'Add Sign';
       get('blankoutSignActions').hidden = !regulatoryMode;
       get('regulatoryUploadStatus').hidden = !regulatoryMode;
@@ -110,6 +110,8 @@
       <hr /><h3>Control Text</h3>
       <div class="fieldRow"><label for="streetElementSelection">Text Element:</label><select id="streetElementSelection" aria-label="Text element on the selected row"></select></div>
       <div id="streetScriptSideRow" class="fieldRow" hidden><label for="streetText_scriptSide">Position:</label><select id="streetText_scriptSide" data-text-field="scriptSide" aria-label="Superscript or subscript position"><option value="left">Left</option><option value="right">Right</option></select></div>
+      <div id="streetAffixSideRow" class="fieldRow" hidden><label for="streetText_affixSide">Position:</label><select id="streetText_affixSide" data-text-field="affixSide" aria-label="Prefix or suffix position"><option value="left">Left</option><option value="right">Right</option></select></div>
+      <div class="headActions"><button type="button" data-street-element-action="prefix">Add Prefix</button><button type="button" data-street-element-action="suffix">Add Suffix</button></div>
       <div class="headActions"><button type="button" data-street-element-action="superscript">Add Superscript</button><button type="button" data-street-element-action="subscript">Add Subscript</button><button id="deleteStreetElement" type="button" data-street-element-action="remove">Delete Element</button></div>
       <div class="headActions"><button type="button" data-street-text-action="add">New</button><button type="button" data-street-text-action="duplicate">Duplicate</button><button id="deleteStreetText" type="button" data-street-text-action="remove">Delete Selected</button></div>
       <div id="streetTextSelectionRow" class="fieldRow"><label for="streetTextSelection">Text Row:</label><select id="streetTextSelection"></select></div>
@@ -176,6 +178,7 @@
     get('streetText_lineHeightVal').step = 1;
     let suppressClickUntil = 0;
     let drag = null;
+    let pendingTextClick = null;
     const loadedFonts = new Set();
     const iconUploads = new WeakMap();
     app.startStreetIconPicker({ project, selected, iconUploads });
@@ -293,7 +296,7 @@
           if (document.activeElement !== input) input.value = Number((app.streetSignPosition(sign, project.support) / 12).toFixed(3));
         }
       }
-      for (const item of project.streetSigns.filter(item => !app.isRegulatorySign(item))) for (const row of item.texts) for (const element of [row, ...(row.scriptElements ?? [])]) {
+      for (const item of project.streetSigns.filter(item => !app.isRegulatorySign(item))) for (const row of item.texts) for (const element of [row, ...app.streetTextChildren(row)]) {
         const font = app.streetFont(element, item);
         if (loadedFonts.has(font)) continue;
         loadedFonts.add(font);
@@ -303,10 +306,11 @@
       const row = sign.texts[sign.selectedTextIndex];
       const text = app.selectedStreetText(row);
       const elementSelect = get('streetElementSelection');
-      elementSelect.innerHTML = '<option value="0">Main text</option>' + (row.scriptElements ?? []).map((element, index) => `<option value="${index + 1}">${element.script === 'subscript' ? 'Subscript' : 'Superscript'}: ${app.escape(element.textContent.slice(0, 40))}</option>`).join('');
+      elementSelect.innerHTML = '<option value="0">Main text</option>' + app.streetTextChildren(row).map((element, index) => `<option value="${index + 1}">${element.affix ? element.affix === 'prefix' ? 'Prefix' : 'Suffix' : element.script === 'subscript' ? 'Subscript' : 'Superscript'}: ${app.escape(element.textContent.slice(0, 40))}</option>`).join('');
       elementSelect.value = row.selectedElementIndex ?? 0;
       get('deleteStreetElement').disabled = !row.selectedElementIndex;
-      get('streetScriptSideRow').hidden = text === row;
+      get('streetScriptSideRow').hidden = !text.script;
+      get('streetAffixSideRow').hidden = !text.affix;
       form.querySelectorAll('[data-text-field]').forEach(input => {
         if (!updateActiveText && document.activeElement === input) return;
         if (input.type === 'checkbox') input.checked = text[input.dataset.textField];
@@ -482,7 +486,7 @@
         item.id = app.createStreetSign().id;
         item.name = nextName(app.isRegulatorySign(item));
         get('regulatorySignSearch').value = '';
-        if (action === 'duplicate') item.texts.forEach(text => { text.id = app.createStreetText().id; (text.scriptElements ?? []).forEach(element => { element.id = app.createStreetText().id; }); });
+        if (action === 'duplicate') item.texts.forEach(text => { text.id = app.createStreetText().id; app.streetTextChildren(text).forEach(element => { element.id = app.createStreetText().id; }); });
         project.streetSigns.push(item);
         project.selectedStreetSignId = item.id;
         app.ensureStreetSignPositions(project);
@@ -498,12 +502,18 @@
       }
       const preview = event.target.closest('[data-street-sign-id]');
       if (preview && Date.now() > suppressClickUntil) {
+        const target = event.target.closest('[data-street-row-id]');
+        const hit = target ? { rowId: target.dataset.streetRowId, elementId: target.dataset.streetElementId }
+          : pendingTextClick?.signId === preview.dataset.streetSignId && Date.now() < pendingTextClick.until ? pendingTextClick.hit : null;
+        pendingTextClick = null;
         project.selectedStreetSignId = preview.dataset.streetSignId;
-        app.refresh(false);
         const sign = project.streetSigns.find(item => item.id === project.selectedStreetSignId);
+        const textSelected = hit && app.selectStreetTextElement(sign, hit.rowId, hit.elementId);
+        app.refresh(false);
         showEditor(editorFor(sign));
+        refreshEditor(true);
         get(app.isRegulatorySign(sign) ? 'regulatorySignsTitle' : 'streetSignsTitle').focus();
-        flash(project.selectedStreetSignId);
+        if (!textSelected) flash(project.selectedStreetSignId);
       }
     });
     form.addEventListener('click', event => {
@@ -513,7 +523,11 @@
       if (!action) return;
       const text = sign.texts[sign.selectedTextIndex];
       if (action === 'add' || action === 'duplicate') {
-        const row = action === 'add' ? app.createStreetText() : { ...structuredClone(text), id: app.createStreetText().id, scriptElements: (text.scriptElements ?? []).map(element => ({ ...element, id: app.createStreetText().id })) };
+        const row = action === 'add' ? app.createStreetText() : structuredClone(text);
+        if (action === 'duplicate') {
+          row.id = app.createStreetText().id;
+          app.streetTextChildren(row).forEach(element => { element.id = app.createStreetText().id; });
+        }
         sign.texts.splice(sign.selectedTextIndex + 1, 0, row);
         sign.selectedTextIndex++;
       } else if (action === 'remove' && sign.texts.length > 1) {
@@ -533,16 +547,8 @@
       const sign = selected();
       if (!action || !sign) return;
       const row = sign.texts[sign.selectedTextIndex];
-      row.scriptElements ??= [];
-      if (action === 'remove') {
-        if (!row.selectedElementIndex) return;
-        row.scriptElements.splice(row.selectedElementIndex - 1, 1);
-        row.selectedElementIndex = 0;
-      } else {
-        if (row.scriptElements.length >= 20) return;
-        row.scriptElements.push(app.createStreetScript(row, action));
-        row.selectedElementIndex = row.scriptElements.length;
-      }
+      if (action === 'remove') { if (!app.removeStreetTextElement(row)) return; }
+      else if (!app.addStreetTextElement(row, action, sign.texts)) return;
       app.refresh(false);
     });
     function edit(event) {
@@ -561,6 +567,7 @@
         if (field === 'signType' && input.value === 'blank-out' && !app.canBlankOut(sign)) return;
         if (field === 'mounting' && app.hasSpan(project)) return;
         const target = input.dataset.streetField ? sign : app.selectedStreetText(sign.texts[sign.selectedTextIndex]);
+        if (field === 'mounting' && input.value === 'mast' && target.mounting !== 'mast') target.armMounting = target.mounting;
         target[field] = input.type === 'checkbox' ? input.checked : ['number', 'range'].includes(input.type) ? Number(input.value) : input.value;
       }
       app.refresh(false);
@@ -586,11 +593,14 @@
       stage.querySelector(`[data-street-sign-id="${sign.id}"]`)?.focus({ preventScroll: true });
     });
     stage.addEventListener('pointerdown', event => {
+      pendingTextClick = null;
       const element = event.target.closest('[data-street-sign-id]');
       const sign = project.streetSigns.find(item => item.id === element?.dataset.streetSignId);
       if (!sign || !app.signCanMove(sign, project.support) || event.button !== 0) return;
       const rect = element.getBoundingClientRect();
+      const textTarget = event.target.closest('[data-street-row-id]');
       drag = { element, id: element.dataset.streetSignId, pointerId: event.pointerId, x: event.clientX, y: event.clientY, rect,
+        textHit: textTarget ? { rowId: textTarget.dataset.streetRowId, elementId: textTarget.dataset.streetElementId } : null,
         vertical: app.isMastMountedSign(sign, project.support), position: app.streetSignPosition(sign, project.support),
         layout: app.scene(project), containerRect: get('headContainer').getBoundingClientRect() };
       element.setPointerCapture(event.pointerId);
@@ -599,7 +609,7 @@
       if (!drag || drag.pointerId !== event.pointerId) return;
       const dx = event.clientX - drag.x;
       const dy = event.clientY - drag.y;
-      if (!drag.ghost && Math.abs(drag.vertical ? dy : dx) < 6) return;
+      if (!drag.ghost && (app.hasMast(project) ? Math.hypot(dx, dy) : Math.abs(dx)) < 6) return;
       event.preventDefault();
       if (!drag.ghost) {
         app.streetSignDragging = true;
@@ -616,21 +626,31 @@
         Object.assign(drag.ghost.style, { top: `${drag.rect.top}px`, width: `${drag.rect.width}px`, height: `${drag.rect.height}px` });
         document.body.append(drag.ghost);
       }
-      drag.ghost.style.left = `${drag.rect.left + (drag.vertical ? 0 : dx)}px`;
-      drag.ghost.style.top = `${drag.rect.top + (drag.vertical ? dy : 0)}px`;
+      drag.ghost.style.left = `${drag.rect.left + dx}px`;
+      drag.ghost.style.top = `${drag.rect.top + (app.hasMast(project) ? dy : 0)}px`;
     });
     function finishDrag(event, cancelled = false) {
       if (!drag || drag.pointerId !== event.pointerId) return;
       const state = drag;
       drag = null;
+      // Pointer capture can retarget the subsequent click to the whole sign.
+      // Retain the original text hit for an ordinary click or tap only.
+      pendingTextClick = !cancelled && !state.ghost && state.textHit
+        ? { signId: state.id, hit: state.textHit, until: Date.now() + 500 } : null;
       if (state.element.hasPointerCapture(state.pointerId)) state.element.releasePointerCapture(state.pointerId);
       if (state.ghost) {
         state.ghost.remove();
         if (!cancelled) {
           const scale = state.containerRect.width / state.layout.width;
           const sign = project.streetSigns.find(item => item.id === state.id);
-          const position = app.streetSignDragPosition(sign, project.support, state.position, event.clientX - state.x, event.clientY - state.y, scale);
-          app.setStreetSignPosition(sign, project.support, position);
+          if (app.hasMast(project)) {
+            const x = (state.rect.left + state.rect.width / 2 + event.clientX - state.x - state.containerRect.left) / scale;
+            const y = (state.rect.top + state.rect.height / 2 + event.clientY - state.y - state.containerRect.top) / scale;
+            app.dropMastElement(project, state.layout, sign, 'sign', x, y);
+          } else {
+            const position = app.streetSignDragPosition(sign, project.support, state.position, event.clientX - state.x, event.clientY - state.y, scale);
+            app.setStreetSignPosition(sign, project.support, position);
+          }
         }
         suppressClickUntil = Date.now() + 250;
       }

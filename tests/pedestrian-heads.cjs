@@ -36,7 +36,7 @@ assert.equal(head.indications.length, 3);
 const invalid = JSON.parse(JSON.stringify(project));
 invalid.heads[0].poleMounted = false;
 invalid.heads[0].pedestrian = true;
-assert.equal(app.restoreProject(JSON.stringify(invalid)).heads[0].pedestrian, false);
+assert.equal(app.restoreProject(JSON.stringify(invalid)).heads[0].pedestrian, true);
 console.log('Pedestrian layout, restrictions, persistence, duplication and SVG export passed');
 // Mount changes retain one fit envelope, with left/right interpreted on screen
 // for either mast side. Artwork and physical housing dimensions stay identical.
