@@ -201,43 +201,41 @@
     window.addEventListener('resize', positionSymbolMenu);
     window.addEventListener('scroll', positionSymbolMenu, true);
 
-    function fitPreview() {
-      const container = get('headContainer');
-      if (!container) { stage.style.paddingBottom = '0px'; stage.style.paddingLeft = '0px'; return; }
-      if (headDragState || app.streetSignDragging) return;
-      const panel = document.querySelector('.modals > .editor:not([hidden]), #headsMenu:not([hidden]), #mastArmsMenu:not([hidden])');
-      const obstruction = window.innerWidth <= 768 && panel
-        ? Math.max(0, stage.getBoundingClientRect().bottom - panel.getBoundingClientRect().top + 12) : 0;
-      const leftInset = window.innerWidth > 768 && panel?.classList.contains('editor')
-        ? Math.max(0, panel.getBoundingClientRect().right - stage.getBoundingClientRect().left + 16) : 0;
-      stage.style.paddingBottom = `${obstruction}px`;
-      stage.style.paddingLeft = `${leftInset}px`;
-      const layout = app.scene(project);
-      const scale = Math.max(0.01, Math.min(4.75,
-        (stage.clientWidth - leftInset - 20) / layout.width,
-        (stage.clientHeight - obstruction - 20) / layout.height));
-// in #sm-links
-// in #sm-links
-      container.style.gap = `${project.spacing * scale}px`;
-      if (app.hasSupport(project) || project.streetSigns?.length) {
-        container.style.width = `${layout.width * scale}px`;
-        container.style.height = `${layout.height * scale}px`;
-      }
-      const elements = [...container.querySelectorAll('.previewHead')];
-      layout.heads.forEach(({ geometry, x, y }, index) => {
-        elements[index].style.width = `${geometry.width * scale}px`;
-        elements[index].style.height = `${geometry.height * scale}px`;
-        if (app.hasSupport(project) || project.streetSigns?.length) {
-          elements[index].style.left = `${x * scale}px`;
-          elements[index].style.top = `${y * scale}px`;
-        }
-      });
-      const signs = [...container.querySelectorAll('.previewStreetSign')];
-      (layout.streetSigns ?? []).forEach(({ geometry, x, y }, index) => {
-        Object.assign(signs[index].style, { width: `${geometry.width * scale}px`, height: `${geometry.height * scale}px`, left: `${x * scale}px`, top: `${y * scale}px` });
-      });
-      drawSpacingRange();
+function fitPreview() {
+  const container = get('headContainer');
+  if (!container) { stage.style.paddingBottom = '0px'; stage.style.paddingLeft = '0px'; return; }
+  if (headDragState || app.streetSignDragging) return;
+  const panel = document.querySelector('.modals > .editor:not([hidden]), #headsMenu:not([hidden]), #mastArmsMenu:not([hidden])');
+  const obstruction = window.innerWidth <= 768 && panel
+    ? Math.max(0, stage.getBoundingClientRect().bottom - panel.getBoundingClientRect().top + 12) : 0;
+  const leftInset = window.innerWidth > 768 && panel?.classList.contains('editor')
+    ? Math.max(0, panel.getBoundingClientRect().right - stage.getBoundingClientRect().left + 16) : 0;
+  stage.style.paddingBottom = `${obstruction}px`;
+  stage.style.paddingLeft = `${leftInset}px`;
+  const layout = app.scene(project);
+  const scale = Math.max(0.01, Math.min(4.75,
+    (stage.clientWidth - leftInset - 20) / layout.width,
+    (stage.clientHeight - obstruction - 20) / layout.height));
+  container.style.gap = `${project.spacing * scale}px`;
+  if (layout.assemblies || app.hasSupport(project) || project.streetSigns?.length) {
+    container.style.width = `${layout.width * scale}px`;
+    container.style.height = `${layout.height * scale}px`;
+  }
+  const elements = [...container.querySelectorAll('.previewHead')];
+  layout.heads.forEach(({ geometry, x, y }, index) => {
+    elements[index].style.width = `${geometry.width * scale}px`;
+    elements[index].style.height = `${geometry.height * scale}px`;
+    if (layout.assemblies || app.hasSupport(project) || project.streetSigns?.length) {
+      elements[index].style.left = `${x * scale}px`;
+      elements[index].style.top = `${y * scale}px`;
     }
+  });
+  const signs = [...container.querySelectorAll('.previewStreetSign')];
+  (layout.streetSigns ?? []).forEach(({ geometry, x, y }, index) => {
+    Object.assign(signs[index].style, { width: `${geometry.width * scale}px`, height: `${geometry.height * scale}px`, left: `${x * scale}px`, top: `${y * scale}px` });
+  });
+  drawSpacingRange();
+}
 
     // Range endpoints are physical distances; fit and drag use the same curved,
     // mirrored projection as mounted heads. This temporary UI never enters exports.
@@ -354,177 +352,176 @@
       } else if (event.key === 'Enter') { event.preventDefault(); finishSpacing(true); }
     });
 
-    function updateOptions(head) {
-      if (!head) return;
-      form.querySelectorAll('[data-head-choice]').forEach(button => {
-        const field = button.dataset.headChoice;
-        const value = field === 'layout' ? head.pedestrian ? 'pedestrian' : head.hawk ? 'hawk' : head.cluster ? 'cluster' : 'linear' : head[field];
-        const selected = button.dataset.value === value;
-        button.classList.toggle('selected', selected);
-        button.setAttribute('aria-pressed', String(selected));
-        button.disabled = field === 'orientation' && (head.cluster || head.hawk || head.pedestrian)
-          || field === 'layout' && button.dataset.value === 'pedestrian' && !head.poleMounted;
-        if (field === 'layout' && button.dataset.value === 'pedestrian') button.title = head.poleMounted ? 'Pedestrian signal' : 'Only available for supplementary heads';
-      });
-      for (const [id, field] of [['headBackplateMargin', 'backplateMargin'], ['headReflectiveWidth', 'reflectiveWidth']]) {
-        if (document.activeElement !== get(id)) get(id).value = head[field];
-        get(`${id}Value`).value = head[field];
-      }
-      get('pedestrianDisplayOptions').hidden = !head.pedestrian;
-      indicationList.hidden = Boolean(head.pedestrian);
-      get('addIndication').hidden = Boolean(head.pedestrian);
-      // Refresh mounted controls too, so an old disabled state cannot linger.
-      head.indications.forEach(section => {
-        const color = get(`color-${section.id}`);
-        if (!color) return;
-        const markup = options(app.indicationColors(section.symbol), section.color);
-        if (color.innerHTML !== markup) color.innerHTML = markup;
-        color.disabled = head.hawk === true;
-        color.value = section.color;
-      });
-      get('headBackplate').closest('.fieldRow').hidden = Boolean(head.pedestrian);
-      get('headOrientation').closest('.fieldRow').hidden = Boolean(head.pedestrian);
-      get('backplateOptions').hidden = head.pedestrian || head.backplate === 'none';
-      get('reflectiveOptions').hidden = head.backplate !== 'reflective';
-      get('fullBackplateOptions').hidden = !head.hawk && head.indications.length !== 5;
-      get('spanPoleOptions').hidden = !head.poleMounted || !app.hasSpan(project);
-      get('spanPole').value = head.spanPole ?? 'left';
-      get('poleMountingOptions').hidden = !head.poleMounted || !app.hasSupport(project);
-      get('poleMountSideOptions').hidden = !head.poleMounted || !app.hasSupport(project) || head.poleMounting === 'direct';
-      get('poleMountSide').value = head.poleMountSide ?? (project.support.side === 'left' ? 'left' : 'right');
-      get('armPositionOptions').hidden = !app.hasSupport(project);
-      get('armPositionLabel').textContent = head.poleMounted && app.hasSupport(project) ? 'Mount Height (ft):' : app.hasSpan(project) ? 'Span Position (ft):' : 'Arm Position (ft):';
-      if (app.hasSupport(project)) {
-        const bounds = app.armPositionBounds(head, project.support);
-        for (const id of ['armPosition', 'armPositionValue']) {
-          const input = get(id);
-          input.min = bounds.min / 12;
-          input.max = bounds.max / 12;
-          input.setAttribute('aria-label', head.poleMounted && app.hasSupport(project) ? 'Head mounting height above grade in feet' : 'Head position along support in feet');
-          if (document.activeElement !== input) input.value = Number(((head.poleMounted && app.hasSupport(project) ? head.poleHeight : head.armPosition) / 12).toFixed(3));
-        }
-      }
+function updateOptions(head) {
+  if (!head) return;
+  form.querySelectorAll('[data-head-choice]').forEach(button => {
+    const field = button.dataset.headChoice;
+    const value = field === 'layout' ? head.pedestrian ? 'pedestrian' : head.dad ? 'dad' : head.hawk ? 'hawk' : head.fourCluster ? `cluster-${head.fourCluster}` : head.cluster ? 'cluster' : 'linear' : head[field];
+    const selected = button.dataset.value === value;
+    button.classList.toggle('selected', selected);
+    button.setAttribute('aria-pressed', String(selected));
+    button.disabled = field === 'orientation' && (head.cluster || head.fourCluster || (head.hawk || head.dad) || head.pedestrian)
+      || field === 'layout' && button.dataset.value === 'pedestrian' && !head.poleMounted && !app.hasPedestal(project);
+    if (field === 'layout' && button.dataset.value === 'pedestrian') button.title = head.poleMounted || app.hasPedestal(project) ? 'Pedestrian signal' : 'Only available for supplementary heads';
+  });
+  for (const [id, field] of [['headBackplateMargin', 'backplateMargin'], ['headReflectiveWidth', 'reflectiveWidth']]) {
+    if (document.activeElement !== get(id)) get(id).value = head[field];
+    get(`${id}Value`).value = head[field];
+  }
+  get('pedestrianDisplayOptions').hidden = !head.pedestrian;
+  indicationList.hidden = Boolean(head.pedestrian);
+  get('addIndication').hidden = Boolean(head.pedestrian);
+  head.indications.forEach(section => {
+    const color = get(`color-${section.id}`);
+    if (!color) return;
+    const markup = options(app.indicationColors(section.symbol), section.color);
+    if (color.innerHTML !== markup) color.innerHTML = markup;
+    color.disabled = (head.hawk || head.dad) === true;
+    color.value = section.color;
+  });
+  get('headBackplate').closest('.fieldRow').hidden = Boolean(head.pedestrian);
+  get('headOrientation').closest('.fieldRow').hidden = Boolean(head.pedestrian);
+  get('backplateOptions').hidden = head.pedestrian || head.backplate === 'none';
+  get('reflectiveOptions').hidden = head.backplate !== 'reflective';
+  get('fullBackplateOptions').hidden = !(head.hawk || head.dad) && !head.fourCluster && head.indications.length !== 5;
+  get('spanPoleOptions').hidden = !head.poleMounted || !app.hasSpan(project);
+  get('spanPole').value = head.spanPole ?? 'left';
+  get('poleMountingOptions').hidden = (!head.poleMounted && !head.pedestrian) || !app.hasSupport(project);
+  get('poleMountSideOptions').hidden = (!head.poleMounted && !head.pedestrian) || !app.hasSupport(project) || head.poleMounting !== 'side';
+  get('poleMountSide').value = head.poleMountSide ?? (project.support.side === 'left' ? 'left' : 'right');
+  get('armPositionOptions').hidden = !app.hasSupport(project);
+  get('armPositionLabel').textContent = (head.poleMounted || app.hasPedestal(project)) && app.hasSupport(project) ? 'Mount Height (ft):' : app.hasSpan(project) ? 'Span Position (ft):' : 'Arm Position (ft):';
+  if (app.hasSupport(project)) {
+    const bounds = app.armPositionBounds(head, project.support);
+    for (const id of ['armPosition', 'armPositionValue']) {
+      const input = get(id);
+      input.min = bounds.min / 12;
+      input.max = bounds.max / 12;
+      input.setAttribute('aria-label', (head.poleMounted || app.hasPedestal(project)) && app.hasSupport(project) ? 'Head mounting height above grade in feet' : 'Head position along support in feet');
+      if (document.activeElement !== input) input.value = Number((((head.poleMounted || app.hasPedestal(project)) && app.hasSupport(project) ? app.headPosition(head, project.support) : head.armPosition) / 12).toFixed(3));
     }
+  }
+}
 
-    function renderEditor(head) {
-      closeSymbolPicker();
-      form.hidden = !head;
-      get('headEditorEmpty').hidden = Boolean(head);
-      if (!head) { get('indicationList').replaceChildren(); return; }
-      form.querySelectorAll('[data-head-field]').forEach(input => {
-        const value = input.dataset.headField === 'layout' ? head.pedestrian ? 'pedestrian' : head.hawk ? 'hawk' : head.cluster ? 'cluster' : 'linear'
-          : head[input.dataset.headField];
-        if (input.type === 'checkbox') input.checked = value;
-        else input.value = value;
-      });
-      get('addIndication').disabled = head.cluster || head.hawk || head.indications.length >= 5;
-      get('addIndication').title = head.hawk ? 'HAWK beacons have three indications'
-        : head.cluster ? '5 section clusters always have five indications' : 'Up to five indications per head';
-      const positions = head.hawk ? ['Upper left', 'Upper right', 'Bottom']
-        : ['Top', 'Upper left', 'Upper right', 'Lower left', 'Lower right'];
-      indicationList.innerHTML = head.indications.map((section, index) => `<fieldset class="aplArrowEditorBlock" data-indication-id="${section.id}">
-        <legend>Indication ${index + 1}${head.cluster || head.hawk ? ` - ${positions[index]}` : ''}</legend>
-        <div class="aplArrowListItem">
-          <button id="move-${section.id}" type="button" class="aplArrowDragHandle" draggable="${!head.hawk}" ${head.hawk ? 'disabled' : ''} aria-label="Move indication ${index + 1}" aria-keyshortcuts="ArrowUp ArrowDown" title="Drag to reorder; arrow keys also move this indication">Move</button>
-          <div class="symbolPicker">
-            <select id="symbol-${section.id}" data-indication-field="symbol" hidden ${head.hawk ? 'disabled' : ''} aria-label="Indication ${index + 1} symbol">${options(app.symbols, section.symbol)}</select>
-            <button id="symbol-trigger-${section.id}" type="button" class="symbolPickerTrigger" role="combobox" aria-haspopup="listbox" aria-controls="signalSymbolMenu" aria-expanded="false" aria-label="Indication ${index + 1} symbol: ${app.escape(app.symbols[section.symbol])}" data-symbol-select="symbol-${section.id}" ${head.hawk ? 'disabled' : ''}>${symbolLabel(section.symbol)}<svg class="symbolPickerCaret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.25 9.25l4.75 4.75 4.75-4.75"/></svg></button>
-          </div>
-          <select id="size-${section.id}" data-indication-field="size" aria-label="Indication ${index + 1} lens size">${options({ 8: '8 in', 12: '12 in' }, section.size)}</select>
-          <button type="button" class="aplArrowDeleteButton" data-indication-action="remove" ${head.cluster || head.hawk || head.indications.length === 1 ? 'disabled' : ''} aria-label="Delete indication ${index + 1}">Delete</button>
-        </div>
-        <div class="fieldRow"><label for="color-${section.id}">Color:</label><select id="color-${section.id}" data-indication-field="color" ${head.hawk ? 'disabled' : ''}>${options(app.indicationColors(section.symbol), section.color)}</select></div>
-      </fieldset>`).join('');
-      updateOptions(head);
-    }
+function renderEditor(head) {
+  closeSymbolPicker();
+  form.hidden = !head;
+  get('headEditorEmpty').hidden = Boolean(head);
+  if (!head) { get('indicationList').replaceChildren(); return; }
+  form.querySelectorAll('[data-head-field]').forEach(input => {
+    const value = input.dataset.headField === 'layout' ? head.pedestrian ? 'pedestrian' : head.dad ? 'dad' : head.hawk ? 'hawk' : head.fourCluster ? `cluster-${head.fourCluster}` : head.cluster ? 'cluster' : 'linear'
+      : head[input.dataset.headField];
+    if (input.type === 'checkbox') input.checked = value;
+    else input.value = value;
+  });
+  get('addIndication').disabled = head.cluster || head.fourCluster || (head.hawk || head.dad) || head.indications.length >= 5;
+  get('addIndication').title = head.fourCluster ? '4 section clusters always have four indications' : head.dad ? 'DAD heads have three indications' : head.hawk ? 'HAWK beacons have three indications'
+    : head.cluster ? '5 section clusters always have five indications' : 'Up to five indications per head';
+  const positions = head.fourCluster === 'below' ? ['Top', 'Middle', 'Bottom left', 'Bottom right']
+    : head.fourCluster === 'above' ? ['Top left', 'Top right', 'Middle', 'Bottom'] : head.dad ? ['Top', 'Bottom left', 'Bottom right'] : head.hawk ? ['Upper left', 'Upper right', 'Bottom']
+    : ['Top', 'Upper left', 'Upper right', 'Lower left', 'Lower right'];
+  indicationList.innerHTML = head.indications.map((section, index) => `<fieldset class="aplArrowEditorBlock" data-indication-id="${section.id}">
+    <legend>Indication ${index + 1}${head.cluster || head.fourCluster || (head.hawk || head.dad) ? ` - ${positions[index]}` : ''}</legend>
+    <div class="aplArrowListItem">
+      <button id="move-${section.id}" type="button" class="aplArrowDragHandle" draggable="${!(head.hawk || head.dad)}" ${(head.hawk || head.dad) ? 'disabled' : ''} aria-label="Move indication ${index + 1}" aria-keyshortcuts="ArrowUp ArrowDown" title="Drag to reorder; arrow keys also move this indication">Move</button>
+      <div class="symbolPicker">
+        <select id="symbol-${section.id}" data-indication-field="symbol" hidden ${(head.hawk || head.dad) ? 'disabled' : ''} aria-label="Indication ${index + 1} symbol">${options(app.symbols, section.symbol)}</select>
+        <button id="symbol-trigger-${section.id}" type="button" class="symbolPickerTrigger" role="combobox" aria-haspopup="listbox" aria-controls="signalSymbolMenu" aria-expanded="false" aria-label="Indication ${index + 1} symbol: ${app.escape(app.symbols[section.symbol])}" data-symbol-select="symbol-${section.id}" ${(head.hawk || head.dad) ? 'disabled' : ''}>${symbolLabel(section.symbol)}<svg class="symbolPickerCaret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.25 9.25l4.75 4.75 4.75-4.75"/></svg></button>
+      </div>
+      <select id="size-${section.id}" data-indication-field="size" aria-label="Indication ${index + 1} lens size">${options({ 8: '8 in', 12: '12 in' }, section.size)}</select>
+      <button type="button" class="aplArrowDeleteButton" data-indication-action="remove" ${head.cluster || head.fourCluster || (head.hawk || head.dad) || head.indications.length === 1 ? 'disabled' : ''} aria-label="Delete indication ${index + 1}">Delete</button>
+    </div>
+    <div class="fieldRow"><label for="color-${section.id}">Color:</label><select id="color-${section.id}" data-indication-field="color" ${(head.hawk || head.dad) ? 'disabled' : ''}>${options(app.indicationColors(section.symbol), section.color)}</select></div>
+  </fieldset>`).join('');
+  updateOptions(head);
+}
 
-    function refresh(rebuildEditor = true) {
-      // Geometry or head edits end the pending selection rather than applying a
-      // stale range to a different support or set of head envelopes.
-      if (spacingRange) { spacingRange = null; spacingDrag = null; }
-      document.querySelectorAll('.spacingRangeActions').forEach(element => element.remove());
-      for (const id of ['spaceHeadsEvenly', 'spaceSupportHeadsEvenly']) get(id).hidden = false;
-      const focusId = document.activeElement?.id;
-      const scroll = form.parentElement.scrollTop;
-      const listScroll = headList.scrollTop;
-      app.setMastBowWidth(project.support, project.support.bowWidth);
-      app.setMastBowPosition(project.support, project.support.bowPosition);
-      if (app.hasSupport(project)) app.ensureArmPositions(project);
-      app.ensureStreetSignPositions?.(project);
-      app.syncMastArms(project);
-      app.updateMastApproachControls();
-      try { localStorage.setItem('signalmaker-project-v1', JSON.stringify(app.projectForStorage?.(project) ?? project)); } catch {}
-      headList.innerHTML = project.heads.length ? project.heads.map(head =>
-        `<li><button id="select-${head.id}" type="button" class="headListButton${head.id === project.selectedId ? ' active' : ''}" data-select-head="${head.id}" aria-current="${head.id === project.selectedId}" draggable="${project.heads.length > 1}" aria-keyshortcuts="ArrowUp ArrowDown" title="Drag to reorder; arrow keys also move this head"><span>${app.escape(app.displayName(head))}</span></button></li>`).join('') : '<li>No heads yet.</li>';
-      for (const id of ['duplicateHead', 'removeHead', 'copy', 'download']) {
-        get(id).disabled = (['copy', 'download'].includes(id) ? !app.hasDrawing(project) : !project.heads.length)
-          || (id === 'copy' && get(id).dataset.copying === 'true');
-      }
-      get('headAlignment').value = project.alignment;
-      get('supportKind').value = project.support.type;
-      get('mastArmOptions').hidden = !app.hasMast(project);
-      document.querySelectorAll('[data-head-action="add-supplementary"]').forEach(button => { button.hidden = !app.hasSupport(project); });
-      get('mastHeadAlignment').value = project.support.mastHeadAlignment;
-      get('headAlignmentOptions').hidden = app.hasMast(project) && project.support.mastHeadAlignment === 'arm-center';
-      for (const id of ['mastArmAngle', 'mastArmAngleValue', 'mastBowAngle', 'mastBowAngleValue']) {
-        if (document.activeElement !== get(id)) get(id).value = id.startsWith('mastBow') ? project.support.bowAngle : project.support.angle;
-      }
-      get('mastBowPositionOptions').hidden = project.support.bowAngle === 0;
-      get('mastBowWidthOptions').hidden = project.support.bowAngle === 0;
-      for (const id of ['mastBowWidth', 'mastBowWidthValue']) {
-        const input = get(id);
-        input.max = project.support.length / 12;
-        if (document.activeElement !== input) input.value = Number((project.support.bowWidth / 12).toFixed(3));
-      }
-      const bowBounds = app.mastBowBounds(project.support);
-      for (const id of ['mastBowPosition', 'mastBowPositionValue']) {
-        const input = get(id);
-        input.min = bowBounds.min / 12;
-        input.max = bowBounds.max / 12;
-        if (document.activeElement !== input) input.value = Number((project.support.bowPosition / 12).toFixed(3));
-      }
-      get('spanWireOptions').hidden = !app.hasSpan(project);
-      get('spanPostMaterial').value = project.support.spanPostMaterial;
-      get('supportColorOptions').hidden = !app.hasSupport(project);
-      get('headGapOptions').hidden = app.hasSupport(project);
-      get('supportHeadSpacingOptions').hidden = !app.hasSupport(project);
-      const canSpace = app.canSpaceHeadsEvenly(project);
-      const spacingTitle = !app.hasSupport(project) ? 'Free-standing heads already have equal gaps'
-        : project.heads.length < 2 ? 'Add at least two heads'
-        : canSpace ? 'Equal gaps between heads and at both ends of the support'
-        : 'Lengthen the support to fit all heads';
-      for (const id of ['spaceHeadsEvenly', 'spaceSupportHeadsEvenly']) {
-        get(id).disabled = !canSpace;
-        get(id).title = spacingTitle;
-      }
-      get('mastArmSide').value = project.support.side;
-      for (const id of ['armLength', 'armLengthValue']) {
-        if (document.activeElement !== get(id)) get(id).value = project.support.length / 12;
-      }
-      for (const id of ['spanLength', 'spanLengthValue']) {
-        if (document.activeElement !== get(id)) get(id).value = project.support.spanLength / 12;
-      }
-      document.querySelectorAll('[data-support-field]').forEach(input => {
-        const field = input.dataset.supportField;
-        if (document.activeElement !== input) input.value = project.support[field] / (field.endsWith('Height') ? 12 : 1);
-      });
-      get('supportColor').value = project.support.color;
-      get('headSpacing').value = project.spacing;
-      if (document.activeElement !== get('headSpacingValue')) get('headSpacingValue').value = project.spacing;
-      stage.innerHTML = app.hasDrawing(project) ? app.renderPreview(project)
-        : '<div class="previewEmpty"><p>No signal heads yet.</p><button type="button" data-head-action="add">Add Signal Head</button></div>';
-      const head = selectedHead();
-      if (rebuildEditor) renderEditor(head);
-      else updateOptions(head);
-      app.refreshStreetSignEditor?.();
-      positionHeads();
-      fitPreview();
-      if (focusId && document.activeElement?.id !== focusId) get(focusId)?.focus({ preventScroll: true });
-      form.parentElement.scrollTop = scroll;
-      headList.scrollTop = listScroll;
-      app.recordHistory?.();
-      app.onDrawingChanged?.();
-    }
+function refresh(rebuildEditor = true) {
+  if (spacingRange) { spacingRange = null; spacingDrag = null; }
+  document.querySelectorAll('.spacingRangeActions').forEach(element => element.remove());
+  for (const id of ['spaceHeadsEvenly', 'spaceSupportHeadsEvenly']) get(id).hidden = false;
+  const focusId = document.activeElement?.id;
+  const scroll = form.parentElement.scrollTop;
+  const listScroll = headList.scrollTop;
+  app.setMastBowWidth(project.support, project.support.bowWidth);
+  app.setMastBowPosition(project.support, project.support.bowPosition);
+  if (app.hasSupport(project)) app.ensureArmPositions(project);
+  app.ensureStreetSignPositions?.(project);
+  app.syncMastArms(project);
+  app.updateMastApproachControls();
+  try { localStorage.setItem('signalmaker-project-v1', JSON.stringify(app.projectForStorage?.(project) ?? project)); } catch {}
+  headList.innerHTML = project.heads.length ? project.heads.map(head =>
+    `<li><button id="select-${head.id}" type="button" class="headListButton${head.id === project.selectedId ? ' active' : ''}" data-select-head="${head.id}" aria-current="${head.id === project.selectedId}" draggable="${project.heads.length > 1}" aria-keyshortcuts="ArrowUp ArrowDown" title="Drag to reorder; arrow keys also move this head"><span>${app.escape(app.displayName(head))}</span></button></li>`).join('') : '<li>No heads yet.</li>';
+  for (const id of ['duplicateHead', 'removeHead', 'copy', 'download']) {
+    get(id).disabled = (['copy', 'download'].includes(id) ? !app.hasDrawing(project) : !project.heads.length)
+      || (id === 'copy' && get(id).dataset.copying === 'true');
+  }
+  get('headAlignment').value = project.alignment;
+  get('supportKind').value = project.support.type;
+  get('pedestalOptions').hidden = !app.hasPedestal(project);
+  get('mastArmOptions').hidden = !app.hasMast(project);
+  document.querySelectorAll('[data-head-action="add-supplementary"]').forEach(button => { button.hidden = !app.hasSupport(project); });
+  get('mastHeadAlignment').value = project.support.mastHeadAlignment;
+  get('headAlignmentOptions').hidden = app.hasMast(project) && project.support.mastHeadAlignment === 'arm-center';
+  for (const id of ['mastArmAngle', 'mastArmAngleValue', 'mastBowAngle', 'mastBowAngleValue']) {
+    if (document.activeElement !== get(id)) get(id).value = id.startsWith('mastBow') ? project.support.bowAngle : project.support.angle;
+  }
+  get('mastBowPositionOptions').hidden = project.support.bowAngle === 0;
+  get('mastBowWidthOptions').hidden = project.support.bowAngle === 0;
+  for (const id of ['mastBowWidth', 'mastBowWidthValue']) {
+    const input = get(id);
+    input.max = project.support.length / 12;
+    if (document.activeElement !== input) input.value = Number((project.support.bowWidth / 12).toFixed(3));
+  }
+  const bowBounds = app.mastBowBounds(project.support);
+  for (const id of ['mastBowPosition', 'mastBowPositionValue']) {
+    const input = get(id);
+    input.min = bowBounds.min / 12;
+    input.max = bowBounds.max / 12;
+    if (document.activeElement !== input) input.value = Number((project.support.bowPosition / 12).toFixed(3));
+  }
+  get('spanWireOptions').hidden = !app.hasSpan(project);
+  get('spanPostMaterial').value = project.support.spanPostMaterial;
+  get('supportColorOptions').hidden = !app.hasSupport(project);
+  get('headGapOptions').hidden = app.hasSupport(project);
+  get('supportHeadSpacingOptions').hidden = !app.hasSupport(project);
+  const canSpace = app.canSpaceHeadsEvenly(project);
+  const spacingTitle = !app.hasSupport(project) ? 'Free-standing heads already have equal gaps'
+    : project.heads.length < 2 ? 'Add at least two heads'
+    : canSpace ? 'Equal gaps between heads and at both ends of the support'
+    : 'Lengthen the support to fit all heads';
+  for (const id of ['spaceHeadsEvenly', 'spaceSupportHeadsEvenly']) {
+    get(id).disabled = !canSpace;
+    get(id).title = spacingTitle;
+  }
+  get('mastArmSide').value = project.support.side;
+  for (const id of ['armLength', 'armLengthValue']) {
+    if (document.activeElement !== get(id)) get(id).value = project.support.length / 12;
+  }
+  for (const id of ['spanLength', 'spanLengthValue']) {
+    if (document.activeElement !== get(id)) get(id).value = project.support.spanLength / 12;
+  }
+  document.querySelectorAll('[data-support-field]').forEach(input => {
+    const field = input.dataset.supportField;
+    if (document.activeElement !== input) input.value = project.support[field] / (field.endsWith('Height') ? 12 : 1);
+  });
+  get('supportColor').value = project.support.color;
+  get('headSpacing').value = project.spacing;
+  if (document.activeElement !== get('headSpacingValue')) get('headSpacingValue').value = project.spacing;
+  stage.innerHTML = app.hasDrawing(project) ? app.renderPreview(project)
+    : '<div class="previewEmpty"><p>No signal heads yet.</p><button type="button" data-head-action="add">Add Signal Head</button></div>';
+  const head = selectedHead();
+  if (rebuildEditor) renderEditor(head);
+  else updateOptions(head);
+  app.refreshStreetSignEditor?.();
+  positionHeads();
+  fitPreview();
+  if (focusId && document.activeElement?.id !== focusId) get(focusId)?.focus({ preventScroll: true });
+  form.parentElement.scrollTop = scroll;
+  headList.scrollTop = listScroll;
+  app.recordHistory?.();
+  app.onDrawingChanged?.();
+}
 
     function flashHead(id) {
       const target = [...stage.querySelectorAll('.previewHead')].find(element => element.dataset.headId === id);
@@ -558,138 +555,138 @@
       }
     }
 
-    document.addEventListener('click', event => {
-      const action = event.target.closest('[data-head-action]')?.dataset.headAction;
-      if (action === 'add-supplementary' && app.hasSupport(project)) return addHead(Boolean(event.target.closest('#headsMenu')), true);
-      if (action === 'add') return addHead(Boolean(event.target.closest('#headsMenu')));
-      if (action === 'confirm-spacing') { finishSpacing(true); return; }
-      if (action === 'cancel-spacing') { finishSpacing(); return; }
-      if (action === 'space-evenly') {
-        if (!app.canSpaceHeadsEvenly(project)) return;
-        spacingTrigger = event.target.closest('button').id;
-        spacingRange = { start: 0, end: app.supportLength(project.support) };
-        for (const id of ['spaceHeadsEvenly', 'spaceSupportHeadsEvenly']) {
-          const button = get(id);
-          button.hidden = true;
-          const controls = document.createElement('div');
-          controls.className = 'spacingRangeActions';
-          controls.innerHTML = '<p role="status">Drag the yellow handles to choose the spacing range.</p><button type="button" data-head-action="confirm-spacing">Confirm</button> <button type="button" data-head-action="cancel-spacing">Cancel</button>';
-          button.after(controls);
-        }
-        drawSpacingRange();
-        get('spacing-start')?.focus({ preventScroll: true });
-        return;
-      }
-      const head = selectedHead();
-      if (action === 'duplicate' && head) {
-        const newHead = app.createHead('');
-        const copy = Object.assign(newHead, head,
-          { id: newHead.id, name: nextHeadName(),
-            indications: head.indications.map(section => ({ ...section, id: app.createIndication().id })) });
-        app.placeNewHead(project, copy);
-        project.heads.splice(project.heads.indexOf(head) + 1, 0, copy);
-        project.selectedId = copy.id;
-        refresh();
-      } else if (action === 'remove' && head) {
-        const index = project.heads.indexOf(head);
-        project.heads.splice(index, 1);
-        project.selectedId = project.heads[Math.min(index, project.heads.length - 1)]?.id ?? null;
-        refresh();
-      }
-      const id = event.target.closest('[data-select-head], [data-head-id]')?.dataset;
-      if (id) {
-        if (Date.now() < suppressClickUntil) return;
-        project.selectedId = id.selectHead ?? id.headId;
-        refresh();
-        if (!id.selectHead) {
-          showEditor('headEditor');
-          get('headTitle').focus();
-        } else get(`select-${project.selectedId}`)?.focus({ preventScroll: true });
-        flashHead(project.selectedId);
-      }
-    });
-    stage.addEventListener('keydown', event => {
-      const element = event.target.closest('[data-head-id]');
-      if (!element) return;
-      if (['Enter', ' '].includes(event.key)) {
-        event.preventDefault(); element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      } else if (app.hasSupport(project) && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
-        event.preventDefault();
-        const head = project.heads.find(head => head.id === element.dataset.headId);
-        const pole = head.poleMounted && app.hasSupport(project);
-        if (pole ? !['ArrowUp', 'ArrowDown'].includes(event.key) : !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
-        const direction = pole ? (event.key === 'ArrowUp' ? 1 : -1) : (event.key === 'ArrowRight' ? 1 : -1) * (app.hasMast(project) && project.support.side === 'left' ? -1 : 1);
-        app.setArmPosition(head, project.support, (pole ? head.poleHeight : head.armPosition) + direction * (event.shiftKey ? 12 : 3));
-        refresh(false);
-        stage.querySelector(`[data-head-id="${head.id}"]`)?.focus({ preventScroll: true });
-      }
-    });
-    form.addEventListener('submit', event => event.preventDefault());
-    get('headName').addEventListener('input', event => {
-      const head = selectedHead();
-      if (head) { head.name = event.target.value; refresh(false); }
-    });
-    form.addEventListener('click', event => {
-      const button = event.target.closest('[data-head-choice]');
-      const head = selectedHead();
-      if (!button || button.disabled || !head) return;
-      const field = button.dataset.headChoice;
-      if (field === 'layout') app.setHeadLayout(head, button.dataset.value);
-      else if (field === 'orientation') head.orientation = head.cluster || head.hawk ? 'vertical' : button.dataset.value;
-      else head.backplateCorners = button.dataset.value;
-      refresh();
-    });
-    form.addEventListener('input', event => {
-      const input = event.target;
-      const field = input.dataset.headField;
-      const head = selectedHead();
-      if (!head || !['backplateMargin', 'reflectiveWidth'].includes(field)) return;
-      head[field] = field === 'backplateMargin' ? app.normalizePlateMargin(input.valueAsNumber) : app.normalizeReflectiveWidth(input.valueAsNumber);
-      refresh(false);
-    });
-    form.addEventListener('change', event => {
-      const head = selectedHead();
-      if (!head) return;
-      const input = event.target;
-      let value = input.type === 'checkbox' ? input.checked : input.value;
-      const field = input.dataset.headField;
-      if (field) {
-        if (field === 'layout') app.setHeadLayout(head, value);
-        else if (field === 'orientation') head.orientation = head.cluster || head.hawk ? 'vertical' : value;
-        else if (field === 'backplateMargin') head[field] = app.normalizePlateMargin(Number(value));
-        else if (field === 'reflectiveWidth') head[field] = app.normalizeReflectiveWidth(Number(value));
-        else head[field] = value;
-      } else if (input.dataset.indicationField) {
-        if (head.pedestrian) return;
-        if (head.hawk && input.dataset.indicationField !== 'size') return;
-        const section = head.indications.find(section => section.id === input.closest('[data-indication-id]').dataset.indicationId);
-        if (input.dataset.indicationField === 'symbol') {
-          app.setIndicationSymbol(section, value);
-          const trigger = get(`symbol-trigger-${section.id}`);
-          trigger.querySelector('.symbolPickerIcon').innerHTML = app.renderSymbolIcon(value);
-          trigger.querySelector('.symbolPickerLabel').textContent = app.symbols[value];
-          trigger.setAttribute('aria-label', `Indication ${head.indications.indexOf(section) + 1} symbol: ${app.symbols[value]}`);
-        }
-        else {
-          section[input.dataset.indicationField] = input.dataset.indicationField === 'size' ? Number(value) : value;
-        }
-      }
-      refresh(input.dataset.indicationField !== 'symbol' && !['backplateMargin', 'reflectiveWidth'].includes(field));
-    });
-    get('addIndication').addEventListener('click', () => {
-      const head = selectedHead();
-      if (!head || head.pedestrian || head.cluster || head.hawk || head.indications.length >= 5) return;
-      head.indications.push(app.createIndication('green'));
-      refresh();
-    });
-    indicationList.addEventListener('click', event => {
-      const action = event.target.closest('[data-indication-action]')?.dataset.indicationAction;
-      if (!action) return;
-      const head = selectedHead();
-      const index = head.indications.findIndex(section => section.id === event.target.closest('[data-indication-id]').dataset.indicationId);
-      if (action === 'remove' && !head.cluster && !head.hawk && head.indications.length > 1) head.indications.splice(index, 1);
-      refresh();
-    });
+document.addEventListener('click', event => {
+  const action = event.target.closest('[data-head-action]')?.dataset.headAction;
+  if (action === 'add-supplementary' && app.hasSupport(project)) return addHead(Boolean(event.target.closest('#headsMenu')), true);
+  if (action === 'add') return addHead(Boolean(event.target.closest('#headsMenu')));
+  if (action === 'confirm-spacing') { finishSpacing(true); return; }
+  if (action === 'cancel-spacing') { finishSpacing(); return; }
+  if (action === 'space-evenly') {
+    if (!app.canSpaceHeadsEvenly(project)) return;
+    spacingTrigger = event.target.closest('button').id;
+    spacingRange = { start: 0, end: app.supportLength(project.support) };
+    for (const id of ['spaceHeadsEvenly', 'spaceSupportHeadsEvenly']) {
+      const button = get(id);
+      button.hidden = true;
+      const controls = document.createElement('div');
+      controls.className = 'spacingRangeActions';
+      controls.innerHTML = '<p role="status">Drag the yellow handles to choose the spacing range.</p><button type="button" data-head-action="confirm-spacing">Confirm</button> <button type="button" data-head-action="cancel-spacing">Cancel</button>';
+      button.after(controls);
+    }
+    drawSpacingRange();
+    get('spacing-start')?.focus({ preventScroll: true });
+    return;
+  }
+  const head = selectedHead();
+  if (action === 'duplicate' && head) {
+    const newHead = app.createHead('');
+    const copy = Object.assign(newHead, head,
+      { id: newHead.id, name: nextHeadName(),
+        indications: head.indications.map(section => ({ ...section, id: app.createIndication().id })) });
+    app.placeNewHead(project, copy);
+    project.heads.splice(project.heads.indexOf(head) + 1, 0, copy);
+    project.selectedId = copy.id;
+    refresh();
+  } else if (action === 'remove' && head) {
+    const index = project.heads.indexOf(head);
+    project.heads.splice(index, 1);
+    project.selectedId = project.heads[Math.min(index, project.heads.length - 1)]?.id ?? null;
+    refresh();
+  }
+  const id = event.target.closest('[data-select-head], [data-head-id]')?.dataset;
+  if (id) {
+    if (Date.now() < suppressClickUntil) return;
+    project.selectedId = id.selectHead ?? id.headId;
+    refresh();
+    if (!id.selectHead) {
+      showEditor('headEditor');
+      get('headTitle').focus();
+    } else get(`select-${project.selectedId}`)?.focus({ preventScroll: true });
+    flashHead(project.selectedId);
+  }
+});
+stage.addEventListener('keydown', event => {
+  const element = event.target.closest('[data-head-id]');
+  if (!element) return;
+  if (['Enter', ' '].includes(event.key)) {
+    event.preventDefault(); element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  } else if (app.hasSupport(project) && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+    event.preventDefault();
+    const head = project.heads.find(head => head.id === element.dataset.headId);
+    const pole = (head.poleMounted || app.hasPedestal(project)) && app.hasSupport(project);
+    if (pole ? !['ArrowUp', 'ArrowDown'].includes(event.key) : !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+    const direction = pole ? (event.key === 'ArrowUp' ? 1 : -1) : (event.key === 'ArrowRight' ? 1 : -1) * (app.hasMast(project) && project.support.side === 'left' ? -1 : 1);
+    app.setArmPosition(head, project.support, (pole ? app.headPosition(head, project.support) : head.armPosition) + direction * (event.shiftKey ? 12 : 3));
+    refresh(false);
+    stage.querySelector(`[data-head-id="${head.id}"]`)?.focus({ preventScroll: true });
+  }
+});
+form.addEventListener('submit', event => event.preventDefault());
+get('headName').addEventListener('input', event => {
+  const head = selectedHead();
+  if (head) { head.name = event.target.value; refresh(false); }
+});
+form.addEventListener('click', event => {
+  const button = event.target.closest('[data-head-choice]');
+  const head = selectedHead();
+  if (!button || button.disabled || !head) return;
+  const field = button.dataset.headChoice;
+  if (field === 'layout') app.setHeadLayout(head, button.dataset.value, project.support);
+  else if (field === 'orientation') head.orientation = head.cluster || head.fourCluster || (head.hawk || head.dad) ? 'vertical' : button.dataset.value;
+  else head.backplateCorners = button.dataset.value;
+  refresh();
+});
+form.addEventListener('input', event => {
+  const input = event.target;
+  const field = input.dataset.headField;
+  const head = selectedHead();
+  if (!head || !['backplateMargin', 'reflectiveWidth'].includes(field)) return;
+  head[field] = field === 'backplateMargin' ? app.normalizePlateMargin(input.valueAsNumber) : app.normalizeReflectiveWidth(input.valueAsNumber);
+  refresh(false);
+});
+form.addEventListener('change', event => {
+  const head = selectedHead();
+  if (!head) return;
+  const input = event.target;
+  let value = input.type === 'checkbox' ? input.checked : input.value;
+  const field = input.dataset.headField;
+  if (field) {
+    if (field === 'layout') app.setHeadLayout(head, value, project.support);
+    else if (field === 'orientation') head.orientation = head.cluster || head.fourCluster || (head.hawk || head.dad) ? 'vertical' : value;
+    else if (field === 'backplateMargin') head[field] = app.normalizePlateMargin(Number(value));
+    else if (field === 'reflectiveWidth') head[field] = app.normalizeReflectiveWidth(Number(value));
+    else head[field] = value;
+  } else if (input.dataset.indicationField) {
+    if (head.pedestrian) return;
+    if ((head.hawk || head.dad) && input.dataset.indicationField !== 'size') return;
+    const section = head.indications.find(section => section.id === input.closest('[data-indication-id]').dataset.indicationId);
+    if (input.dataset.indicationField === 'symbol') {
+      app.setIndicationSymbol(section, value);
+      const trigger = get(`symbol-trigger-${section.id}`);
+      trigger.querySelector('.symbolPickerIcon').innerHTML = app.renderSymbolIcon(value);
+      trigger.querySelector('.symbolPickerLabel').textContent = app.symbols[value];
+      trigger.setAttribute('aria-label', `Indication ${head.indications.indexOf(section) + 1} symbol: ${app.symbols[value]}`);
+    }
+    else {
+      section[input.dataset.indicationField] = input.dataset.indicationField === 'size' ? Number(value) : value;
+    }
+  }
+  refresh(input.dataset.indicationField !== 'symbol' && !['backplateMargin', 'reflectiveWidth'].includes(field));
+});
+get('addIndication').addEventListener('click', () => {
+  const head = selectedHead();
+  if (!head || head.pedestrian || head.cluster || head.fourCluster || (head.hawk || head.dad) || head.indications.length >= 5) return;
+  head.indications.push(app.createIndication('green'));
+  refresh();
+});
+indicationList.addEventListener('click', event => {
+  const action = event.target.closest('[data-indication-action]')?.dataset.indicationAction;
+  if (!action) return;
+  const head = selectedHead();
+  const index = head.indications.findIndex(section => section.id === event.target.closest('[data-indication-id]').dataset.indicationId);
+  if (action === 'remove' && !head.cluster && !head.fourCluster && !(head.hawk || head.dad) && head.indications.length > 1) head.indications.splice(index, 1);
+  refresh();
+});
 
     function dropPosition(elements, clientX, clientY, vertical = false) {
       const pointer = vertical ? clientY : clientX;
@@ -775,42 +772,39 @@
       indicationDragState = null;
     }
 
-    function finishDrop(kind, clientX, clientY) {
-      if (kind === 'head' && headDragState) {
-        if (app.hasSupport(project)) {
-          const container = get('headContainer');
-          const layout = app.scene(project);
-          const rect = container.getBoundingClientRect();
-          const scale = rect.width / layout.width;
-          const x = (clientX - rect.left - headDragState.offsetX) / scale;
-          const head = project.heads[headDragState.fromIndex];
-          const y = (clientY - rect.top - headDragState.offsetY) / scale;
-          if (app.hasMast(project)) app.dropMastElement(project, layout, head, 'head', x, y);
-          else {
-            const position = head.poleMounted ? layout.span.height + (layout.supportOffset?.y ?? 0) - y
-              : app.supportPositionAtX(project.support, x - layout.supportStart);
-            app.setArmPosition(head, project.support, Math.round(position / 3) * 3);
-          }
-        } else {
-          const elements = [...stage.querySelectorAll('.previewHead')];
-          app.moveItem(project.heads, headDragState.fromIndex, dropPosition(elements, clientX, clientY).index);
-        }
-      } else if (kind === 'headList' && headListDragState) {
-        const buttons = [...headList.querySelectorAll('.headListButton')];
-        app.moveItem(project.heads, headListDragState.fromIndex, dropPosition(buttons, clientX, clientY, true).index);
-      } else if (kind === 'indication' && indicationDragState) {
-        const head = selectedHead();
-        if (head?.id === indicationDragState.headId && !head.hawk) {
-          const rows = [...indicationList.querySelectorAll('.aplArrowEditorBlock')];
-          app.moveItem(head.indications, indicationDragState.fromIndex, dropPosition(rows, clientX, clientY, true).index);
-        }
-      }
-      endHeadDrag();
-      endHeadListDrag();
-      endIndicationDrag();
-      suppressClickUntil = Date.now() + 250;
-      refresh();
+function finishDrop(kind, clientX, clientY) {
+  if (kind === 'head' && headDragState) {
+    if (app.hasSupport(project)) {
+      const container = get('headContainer');
+      const layout = app.scene(project);
+      const rect = container.getBoundingClientRect();
+      const scale = rect.width / layout.width;
+      const x = (clientX - rect.left - headDragState.offsetX) / scale;
+      const head = project.heads[headDragState.fromIndex];
+      const position = (head.poleMounted || app.hasPedestal(project)) && app.hasSupport(project)
+        ? (layout.pedestal ? layout.pedestal.height : layout.span ? layout.span.height : app.dimensions.mast.poleHeight + layout.mast.offsetY) + (layout.supportOffset?.y ?? 0) - (clientY - rect.top - headDragState.offsetY) / scale
+        : app.supportPositionAtX(project.support, (layout.reversed ? layout.width - x : x) - layout.supportStart);
+      app.setArmPosition(project.heads[headDragState.fromIndex], project.support, Math.round(position / 3) * 3);
+    } else {
+      const elements = [...stage.querySelectorAll('.previewHead')];
+      app.moveItem(project.heads, headDragState.fromIndex, dropPosition(elements, clientX, clientY).index);
     }
+  } else if (kind === 'headList' && headListDragState) {
+    const buttons = [...headList.querySelectorAll('.headListButton')];
+    app.moveItem(project.heads, headListDragState.fromIndex, dropPosition(buttons, clientX, clientY, true).index);
+  } else if (kind === 'indication' && indicationDragState) {
+    const head = selectedHead();
+    if (head?.id === indicationDragState.headId && !(head.hawk || head.dad)) {
+      const rows = [...indicationList.querySelectorAll('.aplArrowEditorBlock')];
+      app.moveItem(head.indications, indicationDragState.fromIndex, dropPosition(rows, clientX, clientY, true).index);
+    }
+  }
+  endHeadDrag();
+  endHeadListDrag();
+  endIndicationDrag();
+  suppressClickUntil = Date.now() + 250;
+  refresh();
+}
 
     stage.addEventListener('dragstart', event => {
       const element = event.target.closest('.previewHead');
@@ -905,172 +899,178 @@
       refresh();
     });
 
-    for (const container of [stage, headList, indicationList]) container.addEventListener('pointerdown', event => {
-      if (event.pointerType === 'mouse' || !event.isPrimary || event.button !== 0 || touchDragState) return;
-      const element = container === stage ? event.target.closest('.previewHead')
-        : container === headList ? event.target.closest('.headListButton')
-        : event.target.closest('.aplArrowDragHandle')?.closest('.aplArrowEditorBlock');
-      if (!element || (container === headList && project.heads.length < 2)
-        || (container === indicationList && selectedHead()?.hawk)) return;
-      touchDragState = { kind: container === stage ? 'head' : container === headList ? 'headList' : 'indication', element, container,
-        pointerId: event.pointerId, x: event.clientX, y: event.clientY, ghost: null };
-      container.setPointerCapture(event.pointerId);
-    });
-    document.addEventListener('pointermove', event => {
-      const drag = touchDragState;
-      if (!drag || drag.pointerId !== event.pointerId) return;
-      const dx = event.clientX - drag.x;
-      const dy = event.clientY - drag.y;
-      if (!drag.ghost && Math.hypot(dx, dy) < 6) return;
-      event.preventDefault();
-      if (!drag.ghost) {
-        const rect = drag.element.getBoundingClientRect();
-        drag.left = rect.left;
-        drag.top = rect.top;
-        drag.ghost = drag.element.cloneNode(true);
-        drag.ghost.removeAttribute('id');
-        drag.ghost.querySelectorAll('[id]').forEach(element => element.removeAttribute('id'));
-        drag.ghost.className = drag.kind === 'headList' ? 'dragGhost headListButton' : 'dragGhost';
-        drag.ghost.inert = true;
-        drag.ghost.setAttribute('aria-hidden', 'true');
-        Object.assign(drag.ghost.style, { width: `${rect.width}px`, height: `${rect.height}px` });
-        document.body.append(drag.ghost);
-        if (drag.kind === 'head') beginHeadDrag(drag.element, drag.x, drag.y);
-        else if (drag.kind === 'headList') beginHeadListDrag(drag.element);
-        else beginIndicationDrag(drag.element);
-      }
-      drag.ghost.style.left = `${drag.left + dx}px`;
-      drag.ghost.style.top = `${drag.top + (drag.kind === 'head' && app.hasSpan(project) && !project.heads[headDragState?.fromIndex]?.poleMounted ? 0 : dy)}px`;
-      const elements = drag.kind === 'head' ? [...stage.querySelectorAll('.previewHead')]
-        : drag.kind === 'headList' ? [...headList.querySelectorAll('.headListButton')]
-        : [...indicationList.querySelectorAll('.aplArrowEditorBlock')];
-      if (drag.kind === 'headList') scrollHeadList(event.clientY);
-      if (drag.kind !== 'head' || !app.hasSupport(project)) markDrop(elements, event.clientX, event.clientY, drag.kind !== 'head');
-      if (drag.kind === 'indication') {
-        const content = form.parentElement;
-        const rect = content.getBoundingClientRect();
-        if (event.clientY < rect.top + 30) content.scrollTop -= 12;
-        if (event.clientY > rect.bottom - 30) content.scrollTop += 12;
-      }
-    }, { passive: false });
-    function endTouchDrag(event, cancelled = false) {
-      const drag = touchDragState;
-      if (!drag || drag.pointerId !== event.pointerId) return;
-      touchDragState = null;
-      if (drag.container.hasPointerCapture(event.pointerId)) drag.container.releasePointerCapture(event.pointerId);
-      if (!drag.ghost) return;
-      drag.ghost.remove();
-      suppressClickUntil = Date.now() + 250;
-      if (!cancelled) finishDrop(drag.kind, event.clientX, event.clientY);
-      else { endHeadDrag(); endHeadListDrag(); endIndicationDrag(); fitPreview(); }
+for (const container of [stage, headList, indicationList]) container.addEventListener('pointerdown', event => {
+  if (event.pointerType === 'mouse' || !event.isPrimary || event.button !== 0 || touchDragState) return;
+  const element = container === stage ? event.target.closest('.previewHead')
+    : container === headList ? event.target.closest('.headListButton')
+    : event.target.closest('.aplArrowDragHandle')?.closest('.aplArrowEditorBlock');
+  if (!element || (container === headList && project.heads.length < 2)
+    || (container === indicationList && (selectedHead()?.hawk || selectedHead()?.dad))) return;
+  touchDragState = { kind: container === stage ? 'head' : container === headList ? 'headList' : 'indication', element, container,
+    pointerId: event.pointerId, x: event.clientX, y: event.clientY, ghost: null };
+  container.setPointerCapture(event.pointerId);
+});
+document.addEventListener('pointermove', event => {
+  const drag = touchDragState;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  const dx = event.clientX - drag.x;
+  const dy = event.clientY - drag.y;
+  if (!drag.ghost && Math.hypot(dx, dy) < 6) return;
+  event.preventDefault();
+  if (!drag.ghost) {
+    const rect = drag.element.getBoundingClientRect();
+    drag.left = rect.left;
+    drag.top = rect.top;
+    drag.ghost = drag.element.cloneNode(true);
+    drag.ghost.removeAttribute('id');
+    drag.ghost.querySelectorAll('[id]').forEach(element => element.removeAttribute('id'));
+    drag.ghost.className = drag.kind === 'headList' ? 'dragGhost headListButton' : 'dragGhost';
+    drag.ghost.inert = true;
+    drag.ghost.setAttribute('aria-hidden', 'true');
+    Object.assign(drag.ghost.style, { width: `${rect.width}px`, height: `${rect.height}px` });
+    document.body.append(drag.ghost);
+    if (drag.kind === 'head') beginHeadDrag(drag.element, drag.x, drag.y);
+    else if (drag.kind === 'headList') beginHeadListDrag(drag.element);
+    else beginIndicationDrag(drag.element);
+  }
+  const verticalHead = drag.kind === 'head' && (app.hasPedestal(project) || selectedHead()?.poleMounted) && app.hasSupport(project);
+  drag.ghost.style.left = `${drag.left + (verticalHead ? 0 : dx)}px`;
+  drag.ghost.style.top = `${drag.top + (drag.kind === 'head' && app.hasSupport(project) && !verticalHead ? 0 : dy)}px`;
+  const elements = drag.kind === 'head' ? [...stage.querySelectorAll('.previewHead')]
+    : drag.kind === 'headList' ? [...headList.querySelectorAll('.headListButton')]
+    : [...indicationList.querySelectorAll('.aplArrowEditorBlock')];
+  if (drag.kind === 'headList') scrollHeadList(event.clientY);
+  if (drag.kind !== 'head' || !app.hasSupport(project)) markDrop(elements, event.clientX, event.clientY, drag.kind !== 'head');
+  if (drag.kind === 'indication') {
+    const content = form.parentElement;
+    const rect = content.getBoundingClientRect();
+    if (event.clientY < rect.top + 30) content.scrollTop -= 12;
+    if (event.clientY > rect.bottom - 30) content.scrollTop += 12;
+  }
+}, { passive: false });
+function endTouchDrag(event, cancelled = false) {
+  const drag = touchDragState;
+  if (!drag || drag.pointerId !== event.pointerId) return;
+  touchDragState = null;
+  if (drag.container.hasPointerCapture(event.pointerId)) drag.container.releasePointerCapture(event.pointerId);
+  if (!drag.ghost) return;
+  drag.ghost.remove();
+  suppressClickUntil = Date.now() + 250;
+  if (!cancelled) finishDrop(drag.kind, event.clientX, event.clientY);
+  else { endHeadDrag(); endHeadListDrag(); endIndicationDrag(); fitPreview(); }
+}
+document.addEventListener('pointerup', event => endTouchDrag(event));
+document.addEventListener('pointercancel', event => endTouchDrag(event, true));
+document.addEventListener('keydown', event => {
+  if (event.key !== 'Escape') return;
+  finishSpacing();
+  if (touchDragState) endTouchDrag({ pointerId: touchDragState.pointerId }, true);
+  endHeadDrag();
+  endHeadListDrag();
+  endIndicationDrag();
+});
+get('headAlignment').addEventListener('change', event => {
+  project.alignment = app.normalizeAlignment(event.target.value);
+  refresh(false);
+});
+get('supportKind').addEventListener('change', event => {
+  project.support.type = event.target.value;
+  if (/^(Mast Arm|Span Wire|Pedestal|Support) \d+$/.test(project.mastArmName ?? '')
+    && !project.mastArmName.startsWith(`${app.supportTypeLabel(project.support.type)} `)) {
+    project.mastArmName = app.nextSupportName(project, project.support.type);
+  }
+  refresh();
+});
+get('mastArmSide').addEventListener('change', event => {
+  project.support.side = event.target.value;
+  refresh(false);
+});
+get('mastHeadAlignment').addEventListener('change', event => {
+  project.support.mastHeadAlignment = event.target.value;
+  refresh(false);
+});
+for (const id of ['mastArmAngle', 'mastArmAngleValue', 'mastBowAngle', 'mastBowAngleValue']) {
+  const input = get(id);
+  const bow = id.startsWith('mastBow');
+  input.addEventListener('input', () => {
+    if (input.value === '' || !Number.isFinite(input.valueAsNumber)) return;
+    project.support[bow ? 'bowAngle' : 'angle'] = bow ? app.normalizeMastBowAngle(input.valueAsNumber) : app.normalizeMastAngle(input.valueAsNumber);
+    refresh(false);
+  });
+  input.addEventListener('change', () => { input.value = project.support[bow ? 'bowAngle' : 'angle']; });
+}
+for (const id of ['mastBowPosition', 'mastBowPositionValue']) {
+  const input = get(id);
+  input.addEventListener('input', () => {
+    if (input.value === '' || !Number.isFinite(input.valueAsNumber)) return;
+    app.setMastBowPosition(project.support, input.valueAsNumber * 12);
+    refresh(false);
+  });
+  input.addEventListener('change', () => { input.value = Number((project.support.bowPosition / 12).toFixed(3)); });
+}
+for (const id of ['mastBowWidth', 'mastBowWidthValue']) {
+  const input = get(id);
+  input.addEventListener('input', () => {
+    if (input.value === '' || !Number.isFinite(input.valueAsNumber)) return;
+    app.setMastBowWidth(project.support, input.valueAsNumber * 12);
+    refresh(false);
+  });
+  input.addEventListener('change', () => { input.value = Number((project.support.bowWidth / 12).toFixed(3)); });
+}
+get('spanPostMaterial').addEventListener('change', event => {
+  project.support.spanPostMaterial = event.target.value;
+  refresh(false);
+});
+document.querySelectorAll('[data-support-field]').forEach(input => {
+  const field = input.dataset.supportField;
+  const units = field.endsWith('Height') ? 12 : 1;
+  input.addEventListener('input', () => {
+    if (input.value === '' || !input.validity.valid) return;
+    if (field === 'pedestalHeight') app.setPedestalHeight(project, input.valueAsNumber * units);
+    else project.support[field] = input.valueAsNumber * units;
+    refresh(false);
+  });
+  input.addEventListener('change', () => { input.value = project.support[field] / units; });
+});
+get('supportColor').addEventListener('change', event => {
+  project.support.color = event.target.value;
+  refresh(false);
+});
+for (const id of ['armLength', 'armLengthValue', 'spanLength', 'spanLengthValue', 'armPosition', 'armPositionValue']) {
+  get(id).addEventListener('input', event => {
+    const input = event.target;
+    if (input.value === '' || !Number.isFinite(input.valueAsNumber)) return;
+    if (id.startsWith('armLength') || id.startsWith('spanLength')) {
+      if (!input.validity.valid) return;
+      project.support[id.startsWith('armLength') ? 'length' : 'spanLength'] = input.valueAsNumber * 12;
+    } else {
+      const head = selectedHead();
+      if (!head || !app.hasSupport(project)) return;
+      app.setArmPosition(head, project.support, input.valueAsNumber * 12);
     }
-    document.addEventListener('pointerup', event => endTouchDrag(event));
-    document.addEventListener('pointercancel', event => endTouchDrag(event, true));
-    document.addEventListener('keydown', event => {
-      if (event.key !== 'Escape') return;
-      finishSpacing();
-      if (touchDragState) endTouchDrag({ pointerId: touchDragState.pointerId }, true);
-      endHeadDrag();
-      endHeadListDrag();
-      endIndicationDrag();
-    });
-    get('headAlignment').addEventListener('change', event => {
-      project.alignment = app.normalizeAlignment(event.target.value);
-      refresh(false);
-    });
-    get('supportKind').addEventListener('change', event => {
-      project.support.type = event.target.value;
-      refresh();
-    });
-    get('mastArmSide').addEventListener('change', event => {
-      project.support.side = event.target.value;
-      refresh(false);
-    });
-    get('mastHeadAlignment').addEventListener('change', event => {
-      project.support.mastHeadAlignment = event.target.value;
-      refresh(false);
-    });
-    for (const id of ['mastArmAngle', 'mastArmAngleValue', 'mastBowAngle', 'mastBowAngleValue']) {
-      const input = get(id);
-      const bow = id.startsWith('mastBow');
-      input.addEventListener('input', () => {
-        if (input.value === '' || !Number.isFinite(input.valueAsNumber)) return;
-        project.support[bow ? 'bowAngle' : 'angle'] = bow ? app.normalizeMastBowAngle(input.valueAsNumber) : app.normalizeMastAngle(input.valueAsNumber);
-        refresh(false);
-      });
-      input.addEventListener('change', () => { input.value = project.support[bow ? 'bowAngle' : 'angle']; });
-    }
-    for (const id of ['mastBowPosition', 'mastBowPositionValue']) {
-      const input = get(id);
-      input.addEventListener('input', () => {
-        if (input.value === '' || !Number.isFinite(input.valueAsNumber)) return;
-        app.setMastBowPosition(project.support, input.valueAsNumber * 12);
-        refresh(false);
-      });
-      input.addEventListener('change', () => { input.value = Number((project.support.bowPosition / 12).toFixed(3)); });
-    }
-    for (const id of ['mastBowWidth', 'mastBowWidthValue']) {
-      const input = get(id);
-      input.addEventListener('input', () => {
-        if (input.value === '' || !Number.isFinite(input.valueAsNumber)) return;
-        app.setMastBowWidth(project.support, input.valueAsNumber * 12);
-        refresh(false);
-      });
-      input.addEventListener('change', () => { input.value = Number((project.support.bowWidth / 12).toFixed(3)); });
-    }
-    get('spanPostMaterial').addEventListener('change', event => {
-      project.support.spanPostMaterial = event.target.value;
-      refresh(false);
-    });
-    document.querySelectorAll('[data-support-field]').forEach(input => {
-      const field = input.dataset.supportField;
-      const units = field.endsWith('Height') ? 12 : 1;
-      input.addEventListener('input', () => {
-        if (input.value === '' || !input.validity.valid) return;
-        project.support[field] = input.valueAsNumber * units;
-        refresh(false);
-      });
-      input.addEventListener('change', () => { input.value = project.support[field] / units; });
-    });
-    get('supportColor').addEventListener('change', event => {
-      project.support.color = event.target.value;
-      refresh(false);
-    });
-    for (const id of ['armLength', 'armLengthValue', 'spanLength', 'spanLengthValue', 'armPosition', 'armPositionValue']) {
-      get(id).addEventListener('input', event => {
-        const input = event.target;
-        if (input.value === '' || !Number.isFinite(input.valueAsNumber)) return;
-        if (id.startsWith('armLength') || id.startsWith('spanLength')) {
-          if (!input.validity.valid) return;
-          project.support[id.startsWith('armLength') ? 'length' : 'spanLength'] = input.valueAsNumber * 12;
-        } else {
-          const head = selectedHead();
-          if (!head || !app.hasSupport(project)) return;
-          app.setArmPosition(head, project.support, input.valueAsNumber * 12);
-        }
-        refresh(false);
-      });
-      get(id).addEventListener('change', () => {
-        const head = selectedHead();
-        get(id).value = id.startsWith('armLength') ? project.support.length / 12
-          : id.startsWith('spanLength') ? project.support.spanLength / 12
-          : head ? Number(((head.poleMounted && app.hasSupport(project) ? head.poleHeight : head.armPosition) / 12).toFixed(3)) : '';
-      });
-    }
-    for (const id of ['headSpacing', 'headSpacingValue']) {
-      get(id).addEventListener('input', event => {
-        if (event.target.value === '' || !event.target.validity.valid) return;
-        project.spacing = Number(event.target.value);
-        refresh(false);
-      });
-      get(id).addEventListener('change', event => { event.target.value = project.spacing; });
-    }
-    app.fitPreview = fitPreview;
-    app.refresh = refresh;
-    const resizeObserver = new ResizeObserver(fitPreview);
-    resizeObserver.observe(stage);
-    resizeObserver.observe(document.querySelector('.modals'));
-    refresh();
-    return project;
-  };
+    refresh(false);
+  });
+  get(id).addEventListener('change', () => {
+    const head = selectedHead();
+    get(id).value = id.startsWith('armLength') ? project.support.length / 12
+      : id.startsWith('spanLength') ? project.support.spanLength / 12
+      : head ? Number((((head.poleMounted || app.hasPedestal(project)) && app.hasSupport(project) ? app.headPosition(head, project.support) : head.armPosition) / 12).toFixed(3)) : '';
+  });
+}
+for (const id of ['headSpacing', 'headSpacingValue']) {
+  get(id).addEventListener('input', event => {
+    if (event.target.value === '' || !event.target.validity.valid) return;
+    project.spacing = Number(event.target.value);
+    refresh(false);
+  });
+  get(id).addEventListener('change', event => { event.target.value = project.spacing; });
+}
+app.fitPreview = fitPreview;
+app.refresh = refresh;
+const resizeObserver = new ResizeObserver(fitPreview);
+resizeObserver.observe(stage);
+resizeObserver.observe(document.querySelector('.modals'));
+refresh();
+return project;
+};
 })();

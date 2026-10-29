@@ -6,11 +6,13 @@
    const fields = ['support', 'heads', 'streetSigns', 'selectedId', 'selectedStreetSignId', 'selectedTextIndex', 'alignment', 'spacing', 'mastArmId', 'mastArmName'];
    const snapshot = project => Object.fromEntries(fields.map(field => [field, project[field]]));
    const uid = () => app.createHead('').id;
-   const nextName = project => {
+   const supportLabel = type => ({ 'mast-arm': 'Mast Arm', 'span-wire': 'Span Wire', pedestal: 'Pedestal' }[type] ?? 'Support');
+   const nextName = (project, type = project.support.type) => {
      const names = new Set((project.mastArms ?? []).map(arm => arm.mastArmName));
+     names.add(project.mastArmName);
      let number = 1;
-     while (names.has(`Mast Arm ${number}`)) number++;
-     return `Mast Arm ${number}`;
+     while (names.has(`${supportLabel(type)} ${number}`)) number++;
+     return `${supportLabel(type)} ${number}`;
    };
    const spacing = value => Number.isFinite(value) ? Math.max(0, Math.min(6000, value)) : 720;
    function syncMastArms(project) {
@@ -19,7 +21,7 @@
      project.mastArms[project.activeMastArm] = snapshot(project);
    }
    function mastArmProjects(project) {
-     if (!app.hasMast(project) || !project.mastArms?.length) return [project];
+     if (!project.mastArms?.length) return [project];
      return project.mastArms.map((arm, index) => index === project.activeMastArm ? snapshot(project) : arm);
    }
    function selectMastArm(project, index) {
@@ -28,14 +30,20 @@
      project.activeMastArm = index;
      Object.assign(project, project.mastArms[index]);
    }
-   function addMastArm(project) {
-     if (!app.hasMast(project)) return;
+   function addSupport(project, type = 'mast-arm') {
+     if (!['mast-arm', 'span-wire', 'pedestal'].includes(type)) return;
+     if (!project.mastArms?.length && !app.hasSupport(project) && !project.heads.length && !project.streetSigns?.length) {
+       project.support = app.normalizeSupport({ type });
+       project.mastArmName = `${supportLabel(type)} 1`;
+       return;
+     }
      if (!project.mastArms?.length) { project.mastArms = [snapshot(project)]; project.activeMastArm = 0; }
      syncMastArms(project);
-     project.mastArms.push({ mastArmId: uid(), mastArmName: nextName(project), support: app.normalizeSupport({ type: 'mast-arm' }), heads: [], streetSigns: [],
+     project.mastArms.push({ mastArmId: uid(), mastArmName: nextName(project, type), support: app.normalizeSupport({ type }), heads: [], streetSigns: [],
        selectedId: null, selectedStreetSignId: null, selectedTextIndex: 0, alignment: 'center', spacing: 12 });
      selectMastArm(project, project.mastArms.length - 1);
    }
+   const addMastArm = project => addSupport(project, 'mast-arm');
    function removeMastArm(project) {
      if ((project.mastArms?.length ?? 0) < 2) return;
      const index = project.activeMastArm;
@@ -53,7 +61,6 @@
      return moved;
    }
    function duplicateMastArm(project) {
-     if (!app.hasMast(project)) return;
      if (!project.mastArms?.length) { project.mastArms = [snapshot(project)]; project.activeMastArm = 0; }
      syncMastArms(project);
      const copy = restoreSingle(JSON.stringify({ ...snapshot(project), version: 1 }));
@@ -65,7 +72,7 @@
    app.restoreProject = raw => {
      const project = restoreSingle(raw);
      project.mastArmId = uid();
-     project.mastArmName = 'Mast Arm 1';
+     project.mastArmName = `${supportLabel(project.support.type === 'none' ? 'mast-arm' : project.support.type)} 1`;
      project.mastArms = [];
      project.activeMastArm = 0;
      project.mastArmSpacing = 720;
@@ -76,11 +83,11 @@
        if (typeof saved?.mastArmName === 'string') project.mastArmName = saved.mastArmName.slice(0, 80);
        if (saved?.version === 1 && Array.isArray(saved?.mastArms) && saved.mastArms.length) {
          const active = Number.isInteger(saved.activeMastArm) ? Math.max(0, Math.min(saved.mastArms.length - 1, saved.activeMastArm)) : 0;
-         if (typeof saved.mastArmName !== 'string') project.mastArmName = `Mast Arm ${active + 1}`;
+         if (typeof saved.mastArmName !== 'string') project.mastArmName = `${supportLabel(project.support.type)} ${active + 1}`;
          project.mastArms = saved.mastArms.map((arm, index) => index === active ? snapshot(project)
-           : { ...snapshot(restoreSingle(JSON.stringify({ ...arm, version: 1, support: { ...arm.support, type: 'mast-arm' } }))),
+           : { ...snapshot(restoreSingle(JSON.stringify({ ...arm, version: 1, support: { ...arm.support, type: arm.support?.type ?? 'mast-arm' } }))),
              mastArmId: typeof arm.mastArmId === 'string' ? arm.mastArmId : uid(),
-             mastArmName: typeof arm.mastArmName === 'string' ? arm.mastArmName.slice(0, 80) : `Mast Arm ${index + 1}` });
+             mastArmName: typeof arm.mastArmName === 'string' ? arm.mastArmName.slice(0, 80) : `${supportLabel(arm.support?.type)} ${index + 1}` });
          project.activeMastArm = active;
        }
      } catch {}
@@ -98,8 +105,8 @@
        select.innerHTML = arms.map((_, index) => `<option value="${index}">${app.escape(arms[index].mastArmName ?? `Mast Arm ${index + 1}`)}</option>`).join('');
        select.value = project.activeMastArm ?? 0;
        get('removeMastArm').disabled = get('removeMastArmPopover').disabled = arms.length < 2;
-       get('mastArmsToolbar').disabled = !app.hasMast(project);
-       list.innerHTML = arms.map((arm, index) => `<li><button id="mast-select-${arm.mastArmId}" type="button" class="headListButton${index === (project.activeMastArm ?? 0) ? ' active' : ''}" data-select-arm="${index}" draggable="${arms.length > 1}" aria-current="${index === (project.activeMastArm ?? 0)}" aria-keyshortcuts="ArrowUp ArrowDown" title="Drag to reorder; arrow keys also move this mast arm">${app.escape(arm.mastArmName ?? `Mast Arm ${index + 1}`)}</button></li>`).join('');
+       get('mastArmsToolbar').disabled = false;
+       list.innerHTML = arms.map((arm, index) => `<li><button id="mast-select-${arm.mastArmId}" type="button" class="headListButton${index === (project.activeMastArm ?? 0) ? ' active' : ''}" data-select-arm="${index}" draggable="${arms.length > 1}" aria-current="${index === (project.activeMastArm ?? 0)}" aria-keyshortcuts="ArrowUp ArrowDown" title="Drag to reorder; arrow keys also move this support">${app.escape(arm.mastArmName ?? `Mast Arm ${index + 1}`)}</button></li>`).join('');
        list.scrollTop = scroll;
        if (focusId) get(focusId)?.focus({ preventScroll: true });
        get('mastArmSpacingOptions').hidden = arms.length < 2;
@@ -108,7 +115,10 @@
        }
      };
      get('mastArmSelector').addEventListener('change', event => { selectMastArm(project, Number(event.target.value)); app.refresh(); flashArm(); });
-     for (const id of ['addMastArm', 'addMastArmPopover']) get(id).addEventListener('click', () => { addMastArm(project); app.refresh(); });
+     for (const id of ['addMastArm', 'addMastArmPopover']) get(id).addEventListener('click', () => { addSupport(project, get(id === 'addMastArm' ? 'newSupportKind' : 'newSupportKindPopover').value); app.refresh(); });
+     for (const id of ['newSupportKind', 'newSupportKindPopover']) get(id).addEventListener('change', event => {
+       get(id === 'newSupportKind' ? 'newSupportKindPopover' : 'newSupportKind').value = event.target.value;
+     });
      get('duplicateMastArm').addEventListener('click', () => { duplicateMastArm(project); app.refresh(); });
      for (const id of ['removeMastArm', 'removeMastArmPopover']) get(id).addEventListener('click', () => { removeMastArm(project); app.refresh(); });
      for (const id of ['mastArmSpacing', 'mastArmSpacingValue']) {
@@ -279,7 +289,7 @@
        const rect = get('headContainer').getBoundingClientRect();
        const scale = rect.width / layout.width;
        const assemblies = layout.assemblies ?? [{ layout, x: 0 }];
-       const centers = assemblies.map(item => rect.left + scale * (item.x + (item.layout.reversed ? item.layout.mast.width - item.layout.mast.poleX : item.layout.mast.poleX) + (item.layout.supportOffset?.x ?? 0)));
+       const centers = assemblies.map(item => rect.left + scale * (item.x + app.supportAnchor(item.layout).x));
        const found = centers.findIndex(center => x < center);
        return { index: found < 0 ? centers.length : found, centers, rect };
      };
@@ -326,5 +336,5 @@
      });
      app.updateMastApproachControls = update;
    }
-   Object.assign(app, { syncMastArms, mastArmProjects, selectMastArm, addMastArm, removeMastArm, reorderMastArms, duplicateMastArm, startMastApproach });
+   Object.assign(app, { syncMastArms, mastArmProjects, selectMastArm, addMastArm, addSupport, nextSupportName: nextName, supportTypeLabel: supportLabel, removeMastArm, reorderMastArms, duplicateMastArm, startMastApproach });
  })();

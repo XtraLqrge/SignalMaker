@@ -23,9 +23,9 @@
   const isRegulatorySign = sign => Boolean(regulatoryDesign(sign));
   const canBlankOut = sign => !sign.regulatoryImage && Boolean(app.regulatoryBlankoutData?.[sign.regulatoryCode]);
   const isBlankOut = sign => sign.signType === 'blank-out' && canBlankOut(sign);
-  const signCanMove = (sign, support) => support.type === 'mast-arm' || support.type === 'span-wire' && isRegulatorySign(sign);
-  const isMastMountedSign = (sign, support) => support.type === 'mast-arm' && sign.mounting === 'mast';
-  const signPositionKey = (sign, support) => isMastMountedSign(sign, support) ? 'poleHeight'
+  const signCanMove = (sign, support) => support.type === 'pedestal' || support.type === 'mast-arm' || support.type === 'span-wire' && isRegulatorySign(sign);
+  const isPoleMountedSign = (sign, support) => support.type === 'pedestal' || support.type === 'mast-arm' && sign.mounting === 'mast';
+  const signPositionKey = (sign, support) => support.type === 'pedestal' ? 'pedestalPosition' : isPoleMountedSign(sign, support) ? 'poleHeight'
     : support.type === 'span-wire' && isRegulatorySign(sign) ? 'spanPosition' : 'armPosition';
   const streetSignPosition = (sign, support) => sign[signPositionKey(sign, support)];
   function createStreetText() {
@@ -172,6 +172,7 @@
       for (const key of ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft']) sign[key] = number(raw[key], 0, 20, sign[key]);
       if (Number.isFinite(raw.armPosition)) sign.armPosition = raw.armPosition;
       if (Number.isFinite(raw.spanPosition)) sign.spanPosition = raw.spanPosition;
+      if (Number.isFinite(raw.pedestalPosition)) sign.pedestalPosition = raw.pedestalPosition;
       if (Number.isFinite(raw.poleHeight)) sign.poleHeight = raw.poleHeight;
       sign.texts = (Array.isArray(raw.texts) && raw.texts.length ? raw.texts : [createStreetText()]).slice(0, 50).map(value => {
         return restoreStreetText(value);
@@ -356,12 +357,12 @@
     return { width, height, rows, border, textWidth, textX, textY, icon };
   }
   function streetSignBounds(sign, support) {
-    if (isMastMountedSign(sign, support)) {
+    if (isPoleMountedSign(sign, support)) {
       const halfHeight = streetSignGeometry(sign).height / 2;
       // Schematic pole mount: keep the sign's top two inches below the
       // arm-connection plate and its bottom above the mast base plate.
-      const top = app.dimensions.mast.armHeight - app.mastGeometry(support).connectionHeight / 2 - 2;
-      const bottom = app.dimensions.mast.baseThickness;
+      const top = support.type === 'pedestal' ? support.pedestalHeight : app.dimensions.mast.armHeight - app.mastGeometry(support).connectionHeight / 2 - 2;
+      const bottom = support.type === 'pedestal' ? 16 : app.dimensions.mast.baseThickness;
       const min = bottom + halfHeight, max = top - halfHeight;
       return min <= max ? { min, max } : { min: (top + bottom) / 2, max: (top + bottom) / 2 };
     }
@@ -374,12 +375,12 @@
   }
   function ensureStreetSignPositions(project) {
     (project.streetSigns ?? []).forEach((sign, index) => setStreetSignPosition(sign, project.support,
-      streetSignPosition(sign, project.support) ?? (isMastMountedSign(sign, project.support)
+      streetSignPosition(sign, project.support) ?? (isPoleMountedSign(sign, project.support)
         ? streetSignBounds(sign, project.support).max : Math.min(96 + index * 60, app.supportLength(project.support) / 2))));
   }
   function streetSignDragPosition(sign, support, position, dx, dy, scale) {
     if (!sign || !Number.isFinite(position) || !Number.isFinite(scale) || scale <= 0) return position;
-    if (isMastMountedSign(sign, support)) return position - dy / scale;
+    if (isPoleMountedSign(sign, support)) return position - dy / scale;
     const direction = support.type === 'mast-arm' && support.side === 'left' ? -1 : 1;
     return app.supportPositionAtX(support, app.supportXAtPosition(support, position) + direction * dx / scale);
   }
@@ -466,7 +467,8 @@
     });
     return styles.length ? svg.replace(/(<svg\b[^>]*>)/, `$1<defs><style>${styles.join('')}</style></defs>`) : svg;
   }
-  Object.assign(app, { streetPalette: palette, streetFonts: fonts, streetFontFiles: fontFiles, createStreetText, createStreetScript, createStreetAffix, streetTextChildren, addStreetTextElement, removeStreetTextElement, selectedStreetText, selectStreetTextElement, createStreetSign,
-    regulatoryDesign, isRegulatorySign, canBlankOut, isBlankOut, signCanMove, isMastMountedSign, streetSignPosition, streetSignDragPosition,
+Object.assign(app, { streetPalette: palette, streetFonts: fonts, streetFontFiles: fontFiles, createStreetText, createStreetScript, createStreetAffix, streetTextChildren, addStreetTextElement, removeStreetTextElement, selectedStreetText, createStreetSign,
+  regulatoryDesign, isRegulatorySign, canBlankOut, isBlankOut, signCanMove, isPoleMountedSign, isMastMountedSign: isPoleMountedSign, streetSignPosition, streetSignDragPosition,
+  restoreStreetIcon, restoreRegulatoryImage, restoreStreetSigns, streetFont, streetSignGeometry, streetSignBounds, setStreetSignPosition, ensureStreetSignPositions, streetSignMarkup, embedStreetSignFonts });
     restoreStreetIcon, restoreRegulatoryImage, restoreStreetSigns, streetFont, streetSignGeometry, streetSignBounds, setStreetSignPosition, ensureStreetSignPositions, streetSignMarkup, embedStreetSignFonts });
 })();

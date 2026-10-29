@@ -6,7 +6,7 @@
   const clone = value => JSON.parse(JSON.stringify(value));
   const uid = () => app.createHead('').id;
   const assemblySnapshot = project => Object.fromEntries(['support', 'heads', 'streetSigns', 'selectedId', 'selectedStreetSignId', 'selectedTextIndex', 'alignment', 'spacing', 'mastArmId', 'mastArmName'].map(key => [key, project[key]]));
-  const scopes = { head: 'Head', arm: 'Mast Arm', approach: 'Approach' };
+  const scopes = { head: 'Head', arm: 'Support', approach: 'Approach' };
   function templateSnapshot(project, scope) {
     app.syncMastArms(project);
     if (scope === 'head') {
@@ -15,7 +15,7 @@
       return clone({ version: 1, heads: [head], selectedId: head.id, support: app.normalizeSupport(), streetSigns: [], spacing: 12, alignment: 'center' });
     }
     if (scope === 'arm') {
-      if (!app.hasMast(project)) throw new Error('Select a mast arm to save.');
+      if (!app.hasSupport(project)) throw new Error('Select a support to save.');
       return clone({ ...assemblySnapshot(app.mastArmProjects(project)[project.activeMastArm ?? 0]), version: 1 });
     }
     return clone(project);
@@ -43,14 +43,15 @@
       const head = incoming.heads[0];
       if (!head) throw new Error('This template has no head.');
       const target = project.heads.find(item => item.id === project.selectedId);
-      if (head.pedestrian && (!app.hasSupport(project) || mode === 'replace-head' && !target?.poleMounted)) {
+      if (head.pedestrian && (!app.hasSupport(project) || mode === 'replace-head' && !target?.poleMounted && !app.hasPedestal(project))) {
         throw new Error('Pedestrian templates require a supplementary head on a support.');
       }
       if (mode === 'replace-head') {
         if (!target) throw new Error('Select a head to replace.');
-        for (const field of ['armPosition', 'poleHeight', 'poleMounted', 'poleMounting', 'poleMountSide', 'spanPole']) {
+        for (const field of ['pedestalPosition', 'armPosition', 'poleHeight', 'poleMounted', 'poleMounting', 'poleMountSide', 'spanPole']) {
           if (target[field] !== undefined) head[field] = target[field];
         }
+        if (head.pedestrian && app.hasPedestal(project)) head.poleMounted = true;
         project.heads.splice(project.heads.indexOf(target), 1, head);
       } else {
         const names = new Set(project.heads.map(head => head.name));
@@ -63,14 +64,11 @@
       project.selectedId = head.id;
       return;
     }
-    if (!app.hasMast(project) || !app.hasMast(incoming)) throw new Error('Adding assemblies requires mast-arm supports in both the drawing and template.');
+    if (!app.hasSupport(project) || !app.hasSupport(incoming)) throw new Error('Adding assemblies requires supports in both the drawing and template.');
     if (!project.mastArms.length) project.mastArms = [clone(assemblySnapshot(project))];
     app.syncMastArms(project);
     const additions = app.mastArmProjects(incoming).map(arm => {
-      const names = new Set(project.mastArms.map(arm => arm.mastArmName));
-      let number = 1;
-      while (names.has(`Mast Arm ${number}`)) number++;
-      const item = { ...clone(assemblySnapshot(arm)), mastArmName: `Mast Arm ${number}`, mastArmId: uid() };
+      const item = { ...clone(assemblySnapshot(arm)), mastArmName: app.nextSupportName(project, arm.support.type), mastArmId: uid() };
       project.mastArms.push(item);
       return item;
     });
@@ -131,7 +129,7 @@
     };
     const refreshStatus = () => {
       get('saveHeadTemplate').disabled = !!editing || !project.selectedId;
-      get('saveArmTemplate').disabled = !!editing || !app.hasMast(project);
+      get('saveArmTemplate').disabled = !!editing || !app.hasSupport(project);
       get('saveApproachTemplate').disabled = !!editing || !app.hasDrawing(project);
       get('templateEditingNotice').hidden = !editing;
       get('templateEditingNoticeText').textContent = editing ? `Editing ${editing.draft.name}` : '';

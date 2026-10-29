@@ -121,3 +121,44 @@ duplication, templates and PNG export.
 Superscripts and subscripts on the same side share one column: superscripts
 above subscripts, with the column sized to the wider line. Opposite-side
 placement remains independent; preview and PNG use the same layout.
+
+Head Layout includes 4 section cluster below (inverted T) and 4 section cluster
+above (T). Both stay upright and contain exactly four independently editable
+indications. The paired row supports mixed 8/12-inch lenses, stepped or full
+rectangle backplates, and the same preview/PNG geometry. Switching between the
+two variants or back to Linear preserves indication edits.
+
+
+DAD is a three-section face with one circular red above yellow left/right arrows,
+with independent 8/12-inch lens sizes and fixed indication positions. The layout
+uses the same preview/backplate/PNG renderer as other clustered heads. Reference:
+[TTI report 0-7096-R2](https://static.tti.tamu.edu/tti.tamu.edu/documents/0-7096-R2.pdf),
+Figures 38, 40 and 43. The five-section side-by-side layout is not included.
+
+Support Kind includes **Pedestal mounted**. Its pole-height slider and number
+input range from 4 to 20 feet (editor limits, not an FDOT design range). The
+support follows [FDOT Index 646-001, FY 2026-27](https://fdotwww.blob.core.windows.net/sitefinity/docs/default-source/design/standardplans/2027/idx/646-001.pdf):
+a nominal 4-inch Schedule 40 aluminum pole (4.5-inch outside diameter), cap and
+transformer base. The base envelope and mounting hardware are
+schematic; dimensions and assumptions are recorded in the renderer. Primary
+heads default above the pole on a top fitter and follow pole-height changes.
+Add Supplementary Head allows pedestrian signals with direct or left/right side
+brackets. Heads and regulatory signs have independent Mount Height controls,
+vertical pointer/touch dragging and Up/Down keyboard movement. Pedestal heights
+are stored separately from mast/span positions and survive duplication,
+restoration and template replacement. Preview and whole-scene PNG exports share
+the same geometry, including an empty pedestal.
+
+
+The **Supports** selector manages a mixed approach: add Mast arm, Pedestal or
+Span wire supports using New Support / Add Support. Each entry keeps its own
+heads, signs and geometry. Select, duplicate, remove or reorder supports in the
+same popover; clicking a support opens Support Editor. Existing mast-arm projects
+retain their saved data. Pole Spacing measures between adjacent pole centers;
+for a span assembly, spacing to the next support starts at its right post.
+All supports share one grade and are included in whole-scene PNG exports.
+Support and Approach templates preserve mixed support types as well.
+
+Directly mounted pedestal heads can slide above the pole cap with two inches of
+rear overlap, concealing the pole termination behind the housing. This uses the
+existing Directly mounted option, without a separate top-mount choice or fitter.

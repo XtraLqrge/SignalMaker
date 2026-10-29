@@ -226,34 +226,34 @@
        if (restoreFocus) copyButton.focus({ preventScroll: true });
      }
 
-     function openCopyMenu(event) {
-       event.preventDefault();
-       closeCopyMenu();
-       if (!project.heads.length || copyButton.dataset.copying === 'true') return;
-       project.heads.forEach(head => {
-         const item = document.createElement('li');
-         item.setAttribute('role', 'presentation');
-         const button = document.createElement('button');
-         button.type = 'button';
-         button.setAttribute('role', 'menuitem');
-         button.textContent = app.displayName(head);
-         button.addEventListener('click', () => {
-           closeCopyMenu(true);
-           copySignal({ ...project, support: { ...project.support, type: 'none' }, heads: [head], streetSigns: [] });
-         });
-         item.append(button);
-         copyMenu.append(item);
-       });
-       copyMenu.hidden = false;
-       const margin = 4;
-       const rect = copyMenu.getBoundingClientRect();
-       const anchor = copyButton.getBoundingClientRect();
-       const x = event.clientX || anchor.left;
-       const y = event.clientY || anchor.top;
-       copyMenu.style.left = `${Math.min(Math.max(x, margin), Math.max(margin, innerWidth - rect.width - margin))}px`;
-       copyMenu.style.top = `${Math.min(Math.max(y, margin), Math.max(margin, innerHeight - rect.height - margin))}px`;
-       copyMenu.querySelector('button')?.focus({ preventScroll: true });
-     }
+function openCopyMenu(event) {
+  event.preventDefault();
+  closeCopyMenu();
+  if (!project.heads.length || copyButton.dataset.copying === 'true') return;
+  project.heads.forEach(head => {
+    const item = document.createElement('li');
+    item.setAttribute('role', 'presentation');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.setAttribute('role', 'menuitem');
+    button.textContent = app.displayName(head);
+    button.addEventListener('click', () => {
+      closeCopyMenu(true);
+      copySignal({ ...project, mastArms: [], activeMastArm: 0, support: { ...project.support, type: 'none' }, heads: [head], streetSigns: [] });
+    });
+    item.append(button);
+    copyMenu.append(item);
+  });
+  copyMenu.hidden = false;
+  const margin = 4;
+  const rect = copyMenu.getBoundingClientRect();
+  const anchor = copyButton.getBoundingClientRect();
+  const x = event.clientX || anchor.left;
+  const y = event.clientY || anchor.top;
+  copyMenu.style.left = `${Math.min(Math.max(x, margin), Math.max(margin, innerWidth - rect.width - margin))}px`;
+  copyMenu.style.top = `${Math.min(Math.max(y, margin), Math.max(margin, innerHeight - rect.height - margin))}px`;
+  copyMenu.querySelector('button')?.focus({ preventScroll: true });
+}
 
      copyButton.addEventListener('click', () => { closeCopyMenu(); copySignal(); });
      copyButton.addEventListener('contextmenu', openCopyMenu);

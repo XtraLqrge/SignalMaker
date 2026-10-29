@@ -44,11 +44,16 @@
         </h2>
       </div>
       <div class="editorContent">
-        <div class="fieldRow"><label for="supportKind">Support Kind:</label><select id="supportKind"><option value="none">None</option><option value="mast-arm">Mast arm</option><option value="span-wire">Span wire</option></select></div>
+        <div class="fieldRow"><label for="newSupportKind">New Support:</label><select id="newSupportKind"><option value="mast-arm">Mast arm</option><option value="pedestal">Pedestal</option><option value="span-wire">Span wire</option></select></div>
+          <div class="fieldRow"><label for="mastArmSelector">Support:</label><select id="mastArmSelector"><option value="0">Mast Arm 1</option></select></div>
+          <div class="headActions"><button id="addMastArm" type="button">Add Support</button><button id="removeMastArm" type="button" disabled>Remove Support</button></div>
+          <div id="mastArmSpacingOptions" class="fieldRow" hidden><label for="mastArmSpacing">Pole Spacing (ft):</label><div class="dimensionInputs"><input id="mastArmSpacing" type="range" min="0" max="500" step="0.5" value="60" aria-label="Distance between adjacent support poles in feet"/><input id="mastArmSpacingValue" type="number" min="0" max="500" step="0.5" value="60" aria-label="Distance between adjacent support poles in feet"/></div></div>
+        <div class="fieldRow"><label for="supportKind">Support Kind:</label><select id="supportKind"><option value="none">None</option><option value="mast-arm">Mast arm</option><option value="span-wire">Span wire</option><option value="pedestal">Pedestal mounted</option></select></div>
+        <div id="pedestalOptions" hidden>
+          <div class="fieldRow"><label for="pedestalHeight">Pole Height (ft):</label><div class="dimensionInputs"><input id="pedestalHeight" data-support-field="pedestalHeight" type="range" min="4" max="20" step="0.25" value="10" aria-label="Pedestal pole height in feet"/><input id="pedestalHeightValue" data-support-field="pedestalHeight" type="number" min="4" max="20" step="0.25" value="10" aria-label="Pedestal pole height in feet"/></div></div>
+          <div class="headActions"><button type="button" data-head-action="add-supplementary">Add Supplementary Head</button></div>
+        </div>
         <div id="mastArmOptions" hidden>
-          <div class="fieldRow"><label for="mastArmSelector">Mast Arm:</label><select id="mastArmSelector"><option value="0">Mast Arm 1</option></select></div>
-          <div class="headActions"><button id="addMastArm" type="button">Add Mast Arm</button><button id="removeMastArm" type="button" disabled>Remove Mast Arm</button></div>
-          <div id="mastArmSpacingOptions" class="fieldRow" hidden><label for="mastArmSpacing">Pole Spacing (ft):</label><div class="dimensionInputs"><input id="mastArmSpacing" type="range" min="0" max="500" step="0.5" value="60" aria-label="Distance between mast arm pole centers in feet"/><input id="mastArmSpacingValue" type="number" min="0" max="500" step="0.5" value="60" aria-label="Distance between mast arm pole centers in feet"/></div></div>
           <div class="headActions"><button type="button" data-head-action="add-supplementary" hidden>Add Supplementary Head</button></div>
           <div class="fieldRow"><label for="armLength">Arm Length (ft):</label><div class="dimensionInputs"><input id="armLength" type="range" min="10" max="150" step="0.5" value="40" /><input id="armLengthValue" type="number" min="10" max="150" step="0.5" value="40" aria-label="Arm length in feet" /></div></div>
           <div class="fieldRow"><label for="mastArmAngle">Arm Angle (°):</label><div class="dimensionInputs"><input id="mastArmAngle" type="range" min="0" max="15" step="0.2" value="0" /><input id="mastArmAngleValue" type="number" min="0" max="15" step="0.2" value="0" aria-label="Mast arm angle in degrees" /></div></div>
@@ -100,7 +105,7 @@
           <div id="armPositionOptions" class="fieldRow" hidden><label id="armPositionLabel" for="armPosition">Arm Position (ft):</label><div class="dimensionInputs"><input id="armPosition" type="range" step="any" aria-label="Head position along support in feet" /><input id="armPositionValue" type="number" step="any" aria-label="Head position along support in feet" /></div></div>
           <div class="fieldRow"><span id="headOrientationLabel" class="fieldLabel">Orientation:</span><div id="headOrientation" class="headChoiceButtons" role="group" aria-labelledby="headOrientationLabel"><button type="button" data-head-choice="orientation" data-value="vertical" aria-pressed="true">Vertical</button><button type="button" data-head-choice="orientation" data-value="horizontal" aria-pressed="false">Horizontal</button></div></div>
           <div class="fieldRow"><label for="headHousingColor">Housing:</label><select id="headHousingColor" data-head-field="housingColor"><option value="black">Black</option><option value="yellow">Federal yellow</option><option value="green">Dark olive green</option></select></div>
-          <div class="fieldRow"><span id="headLayoutLabel" class="fieldLabel">Layout:</span><div id="headLayout" class="headChoiceButtons" role="group" aria-labelledby="headLayoutLabel"><button type="button" data-head-choice="layout" data-value="linear" aria-pressed="true">Linear</button><button type="button" data-head-choice="layout" data-value="cluster" aria-pressed="false">Doghouse</button><button type="button" data-head-choice="layout" data-value="hawk" aria-pressed="false">HAWK</button><button type="button" data-head-choice="layout" data-value="pedestrian" aria-pressed="false">Pedestrian</button></div></div>
+          <div class="fieldRow"><span id="headLayoutLabel" class="fieldLabel">Layout:</span><div id="headLayout" class="headChoiceButtons" role="group" aria-labelledby="headLayoutLabel"><button type="button" data-head-choice="layout" data-value="linear" aria-pressed="true">Linear</button><button type="button" data-head-choice="layout" data-value="cluster" aria-pressed="false">Doghouse</button><button type="button" data-head-choice="layout" data-value="cluster-below" aria-pressed="false" title="Inverted T: paired indications below">4 section cluster below</button><button type="button" data-head-choice="layout" data-value="cluster-above" aria-pressed="false" title="T: paired indications above">4 section cluster above</button><button type="button" data-head-choice="layout" data-value="dad" aria-pressed="false">DAD</button><button type="button" data-head-choice="layout" data-value="hawk" aria-pressed="false">HAWK</button><button type="button" data-head-choice="layout" data-value="pedestrian" aria-pressed="false">Pedestrian</button></div></div>
           <div class="fieldRow"><label for="headBackplate">Backplate:</label><select id="headBackplate" data-head-field="backplate"><option value="none">None</option><option value="plain">Non-retroreflective</option><option value="reflective">Retroreflective</option></select></div>
           <div id="backplateOptions" hidden>
             <div class="fieldRow"><label for="headBackplateMargin">Plate margin (in):</label><div class="dimensionInputs"><input id="headBackplateMargin" data-head-field="backplateMargin" type="range" min="0" max="8" step="1" value="5" /><output id="headBackplateMarginValue" class="headSliderValue" for="headBackplateMargin">5</output></div></div>
@@ -141,7 +146,7 @@
         <div id="templatesSaved" role="tabpanel" aria-labelledby="templatesSavedTab">
           <div id="templateEditingNotice" class="templateEditingNotice" hidden><span id="templateEditingNoticeText"></span><button id="templateReturnEditor" type="button">Return to Editor</button></div>
           <div class="templateSaveSection"><h4>Save New Template</h4>
-            <div class="templateSaveInput"><input id="templateNameInput" type="text" maxlength="80" placeholder="Enter template name..." aria-label="Template name"/><button id="saveHeadTemplate" type="button">Save Head</button><button id="saveArmTemplate" type="button">Save Mast Arm</button><button id="saveApproachTemplate" type="button">Save Approach</button></div>
+            <div class="templateSaveInput"><input id="templateNameInput" type="text" maxlength="80" placeholder="Enter template name..." aria-label="Template name"/><button id="saveHeadTemplate" type="button">Save Head</button><button id="saveArmTemplate" type="button">Save Support</button><button id="saveApproachTemplate" type="button">Save Approach</button></div>
             <div class="templateSearchSortRow"><input id="templateSearchInput" type="search" placeholder="Search templates..." aria-label="Search templates"/><select id="templateSortSelect" aria-label="Template sort order"><option value="date-created">Date Created</option><option value="last-used">Last Used</option><option value="alphabetical">Alphabetical</option></select></div>
             <label class="templateWarningSetting"><input id="templateLoadWarning" type="checkbox"/>Confirm before replacing an approach or head</label>
           </div><hr/><div class="templateListSection"><h4>Templates</h4><div id="savedTemplatesList"></div></div>
@@ -161,9 +166,10 @@
   </div>
 
   <section id="mastArmsMenu" class="headsMenu" aria-labelledby="mastArmsTitle" hidden>
-    <div class="headPopoverHeader"><h2 id="mastArmsTitle">Mast Arms</h2><span class="headPopoverHint">Drag to reorder</span></div>
-    <div class="headActions"><button id="addMastArmPopover" type="button">Add Mast Arm</button><button id="duplicateMastArm" type="button">Duplicate</button><button id="removeMastArmPopover" type="button">Remove</button></div>
-    <ul id="mastArmList" aria-label="Mast arms"></ul>
+    <div class="headPopoverHeader"><h2 id="mastArmsTitle">Supports</h2><span class="headPopoverHint">Drag to reorder</span></div>
+    <div class="fieldRow"><label for="newSupportKindPopover">New Support:</label><select id="newSupportKindPopover"><option value="mast-arm">Mast arm</option><option value="pedestal">Pedestal</option><option value="span-wire">Span wire</option></select></div>
+    <div class="headActions"><button id="addMastArmPopover" type="button">Add Support</button><button id="duplicateMastArm" type="button">Duplicate</button><button id="removeMastArmPopover" type="button">Remove</button></div>
+    <ul id="mastArmList" aria-label="Supports"></ul>
   </section>
 
   <section id="headsMenu" class="headsMenu" aria-labelledby="headsTitle" hidden>
@@ -199,8 +205,8 @@
       <span class="material-symbols-outlined" aria-hidden="true">construction</span>
       <span class="configLabel">Support Editor</span>
     </button>
-    <button id="mastArmsToolbar" type="button" class="configOption" data-editor="mastArmsMenu" aria-label="Mast Arms" aria-controls="mastArmsMenu" aria-expanded="false" title="Mast Arms">
-      <span class="material-symbols-outlined" aria-hidden="true">vertical_split</span><span class="configLabel">Mast Arms</span><span class="material-symbols-outlined dropdownIcon" aria-hidden="true">expand_more</span>
+    <button id="mastArmsToolbar" type="button" class="configOption" data-editor="mastArmsMenu" aria-label="Supports" aria-controls="mastArmsMenu" aria-expanded="false" title="Supports">
+      <span class="material-symbols-outlined" aria-hidden="true">vertical_split</span><span class="configLabel">Supports</span><span class="material-symbols-outlined dropdownIcon" aria-hidden="true">expand_more</span>
     </button>
     <button type="button" class="configOption" data-editor="headsMenu"
       aria-label="Heads" aria-controls="headsMenu" aria-expanded="false" title="Heads">

@@ -26,61 +26,92 @@
      } else if (section.color === 'white') section.color = 'red';
    }
 
-   function createHead(name) {
-     return {
-       id: uid(), name, orientation: 'vertical', cluster: false, hawk: false, pedestrian: false, pedestrianDisplay: 'hand', housingColor: 'black', visor: 'three-quarter',
-       backplate: 'reflective', backplateMargin: 5, reflectiveWidth: 2,
-       backplateCorners: 'round', backplateFullRectangle: false, poleMounting: 'side',
-       indications: [indication('red'), indication('yellow'), indication('green')],
-     };
-   }
+function createHead(name) {
+  return {
+    id: uid(), name, orientation: 'vertical', cluster: false, fourCluster: null, dad: false, hawk: false, pedestrian: false, pedestrianDisplay: 'hand', housingColor: 'black', visor: 'three-quarter',
+    backplate: 'reflective', backplateMargin: 5, reflectiveWidth: 2,
+    backplateCorners: 'round', backplateFullRectangle: false, poleMounting: 'side',
+    indications: [indication('red'), indication('yellow'), indication('green')],
+  };
+}
 
-   function setCluster(head, enabled) {
-     if (enabled) { head.orientation = 'vertical'; head.hawk = false; }
-     if (enabled && head.indications.length === 3) {
-       const [red, yellow, green] = head.indications;
-       head.indications = [red, indication('yellow', 'left', yellow.size), yellow,
-         indication('green', 'left', green.size), green];
-     }
-     while (enabled && head.indications.length < 5) {
-       const defaults = [['red', 'ball'], ['yellow', 'left'], ['yellow', 'ball'], ['green', 'left'], ['green', 'ball']];
-       const [color, symbol] = defaults[head.indications.length];
-       head.indications.push(indication(color, symbol));
-     }
-     head.cluster = enabled;
-   }
+function setCluster(head, enabled) {
+  if (enabled) { head.orientation = 'vertical'; head.dad = false; head.hawk = false; head.fourCluster = null; }
+  if (enabled && head.indications.length === 3) {
+    const [red, yellow, green] = head.indications;
+    head.indications = [red, indication('yellow', 'left', yellow.size), yellow,
+      indication('green', 'left', green.size), green];
+  }
+  while (enabled && head.indications.length < 5) {
+    const defaults = [['red', 'ball'], ['yellow', 'left'], ['yellow', 'ball'], ['green', 'left'], ['green', 'ball']];
+    const [color, symbol] = defaults[head.indications.length];
+    head.indications.push(indication(color, symbol));
+  }
+  head.cluster = enabled;
+}
 
-   function setHawk(head, enabled) {
-     head.hawk = enabled;
-     if (!enabled) return;
-     head.cluster = false;
-     head.orientation = 'vertical';
-     const colors = ['red', 'red', 'yellow'];
-     head.indications = colors.map((color, index) => ({
-       ...(head.indications[index] ?? indication()), color, symbol: 'ball',
-     }));
-   }
+function setHawk(head, enabled) {
+  head.hawk = enabled;
+  if (!enabled) return;
+  head.cluster = false;
+  head.dad = false;
+  head.fourCluster = null;
+  head.orientation = 'vertical';
+  const colors = ['red', 'red', 'yellow'];
+  head.indications = colors.map((color, index) => ({
+    ...(head.indications[index] ?? indication()), color, symbol: 'ball',
+  }));
+}
 
-   function setHeadLayout(head, layout) {
-     if (layout === 'pedestrian') {
-       if (!head.poleMounted) return;
-       head.pedestrian = true;
-       head.cluster = head.hawk = false;
-       head.orientation = 'vertical';
-       head.backplate = 'none';
-       return;
-     }
-     const wasPedestrian = head.pedestrian;
-     head.pedestrian = false;
-     if (wasPedestrian) head.indications = ['red', 'yellow', 'green'].map(color => indication(color));
-     if (layout === 'hawk') return setHawk(head, true);
-     if (layout === 'linear' && (head.cluster || head.hawk)) {
-       head.indications = ['red', 'yellow', 'green'].map(color => indication(color));
-       head.orientation = 'vertical';
-     }
-     setHawk(head, false);
-     setCluster(head, layout === 'cluster');
-   }
+function setFourCluster(head, side) {
+  head.fourCluster = side;
+  head.cluster = head.hawk = head.pedestrian = false;
+  head.orientation = 'vertical';
+  if (head.indications.length === 3) {
+    const [red, yellow, green] = head.indications;
+    head.indications = side === 'below'
+      ? [red, yellow, indication('green', 'left', green.size), green]
+      : [indication('red', 'left', red.size), red, yellow, green];
+  }
+  while (head.indications.length < 4) head.indications.push(indication('green'));
+  head.indications = head.indications.slice(0, 4);
+}
+function setDad(head) {
+  head.dad = true;
+  head.cluster = head.hawk = head.pedestrian = false;
+  head.fourCluster = null;
+  head.orientation = 'vertical';
+  head.indications = ['ball', 'left', 'right'].map((symbol, index) => ({
+    ...(head.indications[index] ?? indication()), color: index ? 'yellow' : 'red', symbol,
+  }));
+}
+function setHeadLayout(head, layout, support) {
+  if (layout === 'pedestrian' && support?.type === 'pedestal') head.poleMounted = true;
+  if (layout === 'dad') return setDad(head);
+  const wasDad = head.dad;
+  head.dad = false;
+  if (wasDad) head.indications = ['red', 'yellow', 'green'].map(color => indication(color));
+  if (layout === 'cluster-below' || layout === 'cluster-above') return setFourCluster(head, layout === 'cluster-below' ? 'below' : 'above');
+  head.fourCluster = null;
+  if (layout === 'pedestrian') {
+    if (!head.poleMounted) return;
+    head.pedestrian = true;
+    head.cluster = head.hawk = false;
+    head.orientation = 'vertical';
+    head.backplate = 'none';
+    return;
+  }
+  const wasPedestrian = head.pedestrian;
+  head.pedestrian = false;
+  if (wasPedestrian) head.indications = ['red', 'yellow', 'green'].map(color => indication(color));
+  if (layout === 'hawk') return setHawk(head, true);
+  if (layout === 'linear' && (head.cluster || head.hawk)) {
+    head.indications = ['red', 'yellow', 'green'].map(color => indication(color));
+    head.orientation = 'vertical';
+  }
+  setHawk(head, false);
+  setCluster(head, layout === 'cluster');
+}
 
    function moveItem(items, fromIndex, dropIndex) {
      if (!Number.isInteger(fromIndex) || !Number.isInteger(dropIndex)
@@ -91,57 +122,56 @@
      return index;
    }
 
-   function restoreProject(raw) {
-     const empty = { version: 1, spacing: 12, alignment: 'center', support: normalizeSupport(), heads: [], selectedId: null, streetSigns: [], selectedStreetSignId: null };
-     try {
-       const saved = JSON.parse(raw);
-       if (saved.version !== 1 || !Array.isArray(saved.heads)) return empty;
-       let restoredSelection;
-       const heads = saved.heads.filter(head => head && Array.isArray(head.indications)
-         && head.indications.length >= 1 && head.indications.length <= 5).map(head => {
-         const clean = createHead(typeof head.name === 'string' ? head.name.slice(0, 80) : 'Signal head');
-         clean.orientation = head.orientation === 'horizontal' ? 'horizontal' : 'vertical';
-         clean.housingColor = Object.hasOwn(app.housingColors, head.housingColor) ? head.housingColor : 'black';
-         clean.backplate = ['none', 'plain', 'reflective'].includes(head.backplate) ? head.backplate : 'none';
-         clean.backplateMargin = normalizePlateMargin(head.backplateMargin);
-         clean.reflectiveWidth = normalizeReflectiveWidth(head.reflectiveWidth);
-         clean.backplateCorners = head.backplateCorners === 'round' ? 'round' : 'sharp';
-         clean.backplateFullRectangle = head.backplateFullRectangle === true;
-         if (Number.isFinite(head.armPosition)) clean.armPosition = head.armPosition;
-         clean.poleMounted = head.poleMounted === true;
-         clean.poleMounting = head.poleMounting === 'direct' ? 'direct' : 'side';
-         clean.poleMountSide = ['left', 'right'].includes(head.poleMountSide) ? head.poleMountSide
-           : saved.support?.side === 'left' ? 'left' : 'right';
-         clean.spanPole = head.spanPole === 'right' ? 'right' : 'left';
-         clean.poleHeight = Number.isFinite(head.poleHeight) ? head.poleHeight : 120;
-         clean.indications = head.indications.map(section => ({
-           id: uid(), color: Object.hasOwn(app.colors, section?.color) ? section.color : isWhiteDefaultSymbol(section?.symbol) ? 'white' : 'red',
-           symbol: Object.hasOwn(app.symbols, section?.symbol) ? section.symbol : 'ball',
-           size: section?.size === 8 ? 8 : 12,
-         }));
-         clean.indications.forEach(section => setIndicationSymbol(section, section.symbol));
-         clean.cluster = head.cluster === true && clean.indications.length === 5;
-         if (clean.cluster) clean.orientation = 'vertical';
-         if (head.hawk === true && clean.indications.length === 3) setHawk(clean, true);
-         if (head.pedestrian === true) {
-           // Existing pedestrian heads can be moved or pasted onto an arm.
-           const poleMounted = clean.poleMounted;
-           clean.poleMounted = true;
-           setHeadLayout(clean, 'pedestrian');
-           clean.poleMounted = poleMounted;
-           clean.pedestrianDisplay = head.pedestrianDisplay === 'walk' ? 'walk' : 'hand';
-         }
-         if (head.id === saved.selectedId && !restoredSelection) restoredSelection = clean.id;
-         return clean;
-       });
-       const project = { version: 1, heads, alignment: normalizeAlignment(saved.alignment), support: normalizeSupport(saved.support),
-         selectedId: restoredSelection ?? heads[0]?.id ?? null,
-         spacing: Number.isFinite(saved.spacing) ? Math.max(0, Math.min(240, saved.spacing)) : 12 };
-       app.restoreStreetSigns?.(project, saved);
-       if (hasSupport(project)) ensureArmPositions(project);
-       return project;
-     } catch { return empty; }
-   }
+function restoreProject(raw) {
+  const empty = { version: 1, spacing: 12, alignment: 'center', support: normalizeSupport(), heads: [], selectedId: null, streetSigns: [], selectedStreetSignId: null };
+  try {
+    const saved = JSON.parse(raw);
+    if (saved.version !== 1 || !Array.isArray(saved.heads)) return empty;
+    let restoredSelection;
+    const heads = saved.heads.filter(head => head && Array.isArray(head.indications)
+      && head.indications.length >= 1 && head.indications.length <= 5).map(head => {
+      const clean = createHead(typeof head.name === 'string' ? head.name.slice(0, 80) : 'Signal head');
+      clean.orientation = head.orientation === 'horizontal' ? 'horizontal' : 'vertical';
+      clean.housingColor = Object.hasOwn(app.housingColors, head.housingColor) ? head.housingColor : 'black';
+      clean.backplate = ['none', 'plain', 'reflective'].includes(head.backplate) ? head.backplate : 'none';
+      clean.backplateMargin = normalizePlateMargin(head.backplateMargin);
+      clean.reflectiveWidth = normalizeReflectiveWidth(head.reflectiveWidth);
+      clean.backplateCorners = head.backplateCorners === 'round' ? 'round' : 'sharp';
+      clean.backplateFullRectangle = head.backplateFullRectangle === true;
+      if (Number.isFinite(head.armPosition)) clean.armPosition = head.armPosition;
+      clean.poleMounted = head.poleMounted === true;
+      if (Number.isFinite(head.pedestalPosition)) clean.pedestalPosition = head.pedestalPosition;
+      clean.poleMounting = ['direct', 'top'].includes(head.poleMounting) ? 'direct' : 'side';
+      clean.poleMountSide = ['left', 'right'].includes(head.poleMountSide) ? head.poleMountSide
+        : saved.support?.side === 'left' ? 'left' : 'right';
+      clean.spanPole = head.spanPole === 'right' ? 'right' : 'left';
+      clean.poleHeight = Number.isFinite(head.poleHeight) ? head.poleHeight : 120;
+      clean.indications = head.indications.map(section => ({
+        id: uid(), color: Object.hasOwn(app.colors, section?.color) ? section.color : isWhiteDefaultSymbol(section?.symbol) ? 'white' : 'red',
+        symbol: Object.hasOwn(app.symbols, section?.symbol) ? section.symbol : 'ball',
+        size: section?.size === 8 ? 8 : 12,
+      }));
+      clean.indications.forEach(section => setIndicationSymbol(section, section.symbol));
+      clean.cluster = head.cluster === true && clean.indications.length === 5;
+      if (clean.cluster) clean.orientation = 'vertical';
+      if (['above', 'below'].includes(head.fourCluster)) setFourCluster(clean, head.fourCluster);
+      if (head.hawk === true && clean.indications.length === 3) setHawk(clean, true);
+      if (head.dad === true) setDad(clean);
+      if (head.pedestrian === true && clean.poleMounted) {
+        setHeadLayout(clean, 'pedestrian');
+        clean.pedestrianDisplay = head.pedestrianDisplay === 'walk' ? 'walk' : 'hand';
+      }
+      if (head.id === saved.selectedId && !restoredSelection) restoredSelection = clean.id;
+      return clean;
+    });
+    const project = { version: 1, heads, alignment: normalizeAlignment(saved.alignment), support: normalizeSupport(saved.support),
+      selectedId: restoredSelection ?? heads[0]?.id ?? null,
+      spacing: Number.isFinite(saved.spacing) ? Math.max(0, Math.min(240, saved.spacing)) : 12 };
+    app.restoreStreetSigns?.(project, saved);
+    if (hasSupport(project)) ensureArmPositions(project);
+    return project;
+  } catch { return empty; }
+}
 
    function normalizeAlignment(value) {
      return ['top', 'bottom'].includes(value) ? value : 'center';
@@ -176,68 +206,70 @@
      support.bowPosition = Math.max(min, Math.min(max, Number.isFinite(value) ? value : support.length / 2));
    }
 
-   function normalizeSupport(value) {
-     const mast = app.dimensions.mast;
-     const span = app.dimensions.span;
-     const number = (key, min, max, fallback) => Number.isFinite(value?.[key]) ? Math.max(min, Math.min(max, value[key])) : fallback;
-     const color = typeof value?.color === 'string' ? value.color.toLowerCase() : '';
-     const support = { type: ['mast-arm', 'span-wire'].includes(value?.type) ? value.type : 'none',
-       length: Number.isFinite(value?.length) ? Math.max(mast.minLength, Math.min(mast.maxLength, value.length)) : mast.defaultLength,
-       side: value?.side === 'right' ? 'right' : 'left',
-       angle: normalizeMastAngle(value?.angle),
-       bowAngle: normalizeMastBowAngle(value?.bowAngle),
-       mastHeadAlignment: value?.mastHeadAlignment === 'arm-center' ? 'arm-center' : 'level',
-       spanLength: number('spanLength', span.minLength, span.maxLength, span.defaultLength),
-       spanPostMaterial: value?.spanPostMaterial === 'concrete' ? 'concrete' : 'steel',
-       leftPostHeight: number('leftPostHeight', span.minPostHeight, span.maxPostHeight, span.defaultPostHeight),
-       rightPostHeight: number('rightPostHeight', span.minPostHeight, span.maxPostHeight, span.defaultPostHeight),
-       leftPostWidth: number('leftPostWidth', span.minPostWidth, span.maxPostWidth, span.defaultPostWidth),
-       rightPostWidth: number('rightPostWidth', span.minPostWidth, span.maxPostWidth, span.defaultPostWidth),
-       color: ['#a9a9a9', '#252628', '#654321', '#c62828', '#3d4b35'].includes(color) ? color : '#a9a9a9' };
-     setMastBowWidth(support, value?.bowWidth);
-     setMastBowPosition(support, value?.bowPosition);
-     return support;
-   }
+function normalizeSupport(value) {
+  const mast = app.dimensions.mast;
+  const span = app.dimensions.span;
+  const number = (key, min, max, fallback) => Number.isFinite(value?.[key]) ? Math.max(min, Math.min(max, value[key])) : fallback;
+  const color = typeof value?.color === 'string' ? value.color.toLowerCase() : '';
+  const support = { type: ['mast-arm', 'span-wire', 'pedestal'].includes(value?.type) ? value.type : 'none',
+    length: Number.isFinite(value?.length) ? Math.max(mast.minLength, Math.min(mast.maxLength, value.length)) : mast.defaultLength,
+    side: value?.side === 'right' ? 'right' : 'left',
+    angle: normalizeMastAngle(value?.angle),
+    bowAngle: normalizeMastBowAngle(value?.bowAngle),
+    mastHeadAlignment: value?.mastHeadAlignment === 'arm-center' ? 'arm-center' : 'level',
+    pedestalHeight: number('pedestalHeight', 48, 240, 120),
+    spanLength: number('spanLength', span.minLength, span.maxLength, span.defaultLength),
+    spanPostMaterial: value?.spanPostMaterial === 'concrete' ? 'concrete' : 'steel',
+    leftPostHeight: number('leftPostHeight', span.minPostHeight, span.maxPostHeight, span.defaultPostHeight),
+    rightPostHeight: number('rightPostHeight', span.minPostHeight, span.maxPostHeight, span.defaultPostHeight),
+    leftPostWidth: number('leftPostWidth', span.minPostWidth, span.maxPostWidth, span.defaultPostWidth),
+    rightPostWidth: number('rightPostWidth', span.minPostWidth, span.maxPostWidth, span.defaultPostWidth),
+    color: ['#a9a9a9', '#252628', '#654321', '#c62828', '#3d4b35'].includes(color) ? color : '#a9a9a9' };
+  setMastBowWidth(support, value?.bowWidth);
+  setMastBowPosition(support, value?.bowPosition);
+  return support;
+}
 
-   const hasMast = project => project.support?.type === 'mast-arm';
-   const hasSpan = project => project.support?.type === 'span-wire';
-   const hasSupport = project => hasMast(project) || hasSpan(project);
-   const hasDrawing = project => hasSupport(project) || project.heads.length > 0 || project.streetSigns?.length > 0;
-   const supportLength = support => support.type === 'span-wire' ? support.spanLength : support.length;
-   function mastCurve(support) {
-     const angle = normalizeMastAngle(support.angle);
-     const bowAngle = normalizeMastBowAngle(support.bowAngle);
-     const radians = angle * Math.PI / 180;
-     const cos = Math.cos(radians), sin = Math.sin(radians);
-     const { min, max } = mastBowBounds(support);
-     const bowPosition = Math.max(min, Math.min(max, Number.isFinite(support.bowPosition) ? support.bowPosition : support.length / 2));
-     const bendStart = bowPosition - min, bendEnd = bowPosition + min;
-     const turn = -bowAngle * Math.PI / 180;
-     const radius = bowAngle ? (bendEnd - bendStart) / turn : 0;
-     const tipCos = Math.cos(radians + turn), tipSin = Math.sin(radians + turn);
-     function arcAt(position) {
-       const travel = position - bendStart;
-       const sweep = travel / radius;
-       const sinc = sweep ? Math.sin(sweep / 2) / (sweep / 2) : 1;
-       return { x: bendStart * cos + travel * sinc * Math.cos(radians + sweep / 2),
- // in #sm-links
- // in #sm-links
-         y: -bendStart * sin - travel * sinc * Math.sin(radians + sweep / 2),
-         cos: Math.cos(radians + sweep), sin: Math.sin(radians + sweep) };
-     }
-     const end = bowAngle ? arcAt(bendEnd) : null;
-     const at = position => {
-       if (!bowAngle || position <= bendStart) return { x: position * cos, y: -position * sin, cos, sin };
-       if (position < bendEnd) return arcAt(position);
-       return { x: end.x + (position - bendEnd) * tipCos, y: end.y - (position - bendEnd) * tipSin, cos: tipCos, sin: tipSin };
-     };
-     const positionAtX = x => {
-       if (!bowAngle || x <= bendStart * cos) return x / cos;
-       if (x >= end.x) return bendEnd + (x - end.x) / tipCos;
-       return bendStart + radius * (Math.asin(Math.max(-1, Math.min(1, sin + (x - bendStart * cos) / radius))) - radians);
-     };
-     return { angle, bowAngle, bowPosition, bowWidth: bendEnd - bendStart, bendStart, bendEnd, cos, sin, at, positionAtX };
-   }
+const hasMast = project => project.support?.type === 'mast-arm';
+const hasSpan = project => project.support?.type === 'span-wire';
+const hasPedestal = project => project.support?.type === 'pedestal';
+const hasSupport = project => hasMast(project) || hasSpan(project) || hasPedestal(project);
+const headPosition = (head, support) => support.type === 'pedestal' ? head.pedestalPosition : head.poleMounted ? head.poleHeight : head.armPosition;
+const hasDrawing = project => hasSupport(project) || project.heads.length > 0 || project.streetSigns?.length > 0
+  || Boolean(project.mastArms?.some(arm => ['mast-arm', 'span-wire', 'pedestal'].includes(arm.support?.type) || arm.heads?.length || arm.streetSigns?.length));
+const supportLength = support => support.type === 'span-wire' ? support.spanLength : support.length;
+function mastCurve(support) {
+  const angle = normalizeMastAngle(support.angle);
+  const bowAngle = normalizeMastBowAngle(support.bowAngle);
+  const radians = angle * Math.PI / 180;
+  const cos = Math.cos(radians), sin = Math.sin(radians);
+  const { min, max } = mastBowBounds(support);
+  const bowPosition = Math.max(min, Math.min(max, Number.isFinite(support.bowPosition) ? support.bowPosition : support.length / 2));
+  const bendStart = bowPosition - min, bendEnd = bowPosition + min;
+  const turn = -bowAngle * Math.PI / 180;
+  const radius = bowAngle ? (bendEnd - bendStart) / turn : 0;
+  const tipCos = Math.cos(radians + turn), tipSin = Math.sin(radians + turn);
+  function arcAt(position) {
+    const travel = position - bendStart;
+    const sweep = travel / radius;
+    const sinc = sweep ? Math.sin(sweep / 2) / (sweep / 2) : 1;
+    return { x: bendStart * cos + travel * sinc * Math.cos(radians + sweep / 2),
+      y: -bendStart * sin - travel * sinc * Math.sin(radians + sweep / 2),
+      cos: Math.cos(radians + sweep), sin: Math.sin(radians + sweep) };
+  }
+  const end = bowAngle ? arcAt(bendEnd) : null;
+  const at = position => {
+    if (!bowAngle || position <= bendStart) return { x: position * cos, y: -position * sin, cos, sin };
+    if (position < bendEnd) return arcAt(position);
+    return { x: end.x + (position - bendEnd) * tipCos, y: end.y - (position - bendEnd) * tipSin, cos: tipCos, sin: tipSin };
+  };
+  const positionAtX = x => {
+    if (!bowAngle || x <= bendStart * cos) return x / cos;
+    if (x >= end.x) return bendEnd + (x - end.x) / tipCos;
+    return bendStart + radius * (Math.asin(Math.max(-1, Math.min(1, sin + (x - bendStart * cos) / radius))) - radians);
+  };
+  return { angle, bowAngle, bowPosition, bowWidth: bendEnd - bendStart, bendStart, bendEnd, cos, sin, at, positionAtX };
+}
 
    const supportXAtPosition = (support, position) => support.type === 'mast-arm' ? mastCurve(support).at(position).x : position;
    const supportPositionAtX = (support, x) => support.type === 'mast-arm' ? mastCurve(support).positionAtX(x) : x;
@@ -253,45 +285,67 @@
      return { min: supportPositionAtX(support, half), max: supportPositionAtX(support, projected - half) };
    }
 
-   function armPositionBounds(head, support) {
-     if (head.poleMounted && ['mast-arm', 'span-wire'].includes(support.type)) {
-       const half = headGeometry(head).height / 2;
-       const height = support.type === 'span-wire' ? support[head.spanPole === 'right' ? 'rightPostHeight' : 'leftPostHeight'] : app.dimensions.mast.poleHeight;
-       const base = support.type === 'span-wire' && support.spanPostMaterial === 'concrete' ? 0 : app.dimensions.mast.baseThickness;
-       return { min: half + base, max: Math.max(half + base, height - half) };
-     }
-     return supportPositionBounds(headGeometry(head).width, support);
-   }
+function armPositionBounds(head, support) {
+  if (support.type === 'pedestal') {
+    const half = headGeometry(head).height / 2;
+    if ((head.poleMounted || head.pedestrian) && head.poleMounting === 'direct') {
+      return { min: half + 16, max: Math.max(half + 16, support.pedestalHeight + half - 2) };
+    }
+    return head.poleMounted || head.pedestrian
+      ? { min: half + 16, max: Math.max(half + 16, support.pedestalHeight - half) }
+      : { min: half + 16, max: support.pedestalHeight + 6 + half };
+  }
+  if (head.poleMounted && ['mast-arm', 'span-wire'].includes(support.type)) {
+    const half = headGeometry(head).height / 2;
+    const height = support.type === 'span-wire' ? support[head.spanPole === 'right' ? 'rightPostHeight' : 'leftPostHeight'] : app.dimensions.mast.poleHeight;
+    const base = support.type === 'span-wire' && support.spanPostMaterial === 'concrete' ? 0 : app.dimensions.mast.baseThickness;
+    return { min: half + base, max: Math.max(half + base, height - half) };
+  }
+  return supportPositionBounds(headGeometry(head).width, support);
+}
 
-   function setArmPosition(head, support, position) {
-     const { min, max } = armPositionBounds(head, support);
-     head[head.poleMounted && ['mast-arm', 'span-wire'].includes(support.type) ? 'poleHeight' : 'armPosition'] = Math.max(min, Math.min(max, position));
-   }
+function setArmPosition(head, support, position) {
+  const { min, max } = armPositionBounds(head, support);
+  head[support.type === 'pedestal' ? 'pedestalPosition' : head.poleMounted && ['mast-arm', 'span-wire'].includes(support.type) ? 'poleHeight' : 'armPosition'] = Math.max(min, Math.min(max, position));
+}
 
-   function ensureArmPositions(project) {
-     project.heads.forEach((head, index) => setArmPosition(head, project.support,
-       head.poleMounted && hasSupport(project) ? (head.poleHeight ?? 120) : Number.isFinite(head.armPosition) ? head.armPosition : supportLength(project.support) * (index + 1) / (project.heads.length + 1)));
-   }
+function ensureArmPositions(project) {
+  project.heads.forEach((head, index) => setArmPosition(head, project.support,
+    hasPedestal(project) ? (head.pedestalPosition ?? armPositionBounds(head, project.support).max) : head.poleMounted && hasSupport(project) ? (head.poleHeight ?? 120) : Number.isFinite(head.armPosition) ? head.armPosition : supportLength(project.support) * (index + 1) / (project.heads.length + 1)));
+}
 
-   function placeNewHead(project, head) {
-     if (!hasSupport(project) || head.poleMounted) return;
-     const { min, max } = armPositionBounds(head, project.support);
-     const positions = project.heads.filter(other => !other.poleMounted && other !== head && Number.isFinite(other.armPosition))
-       .map(other => Math.max(min, Math.min(max, other.armPosition))).sort((a, b) => a - b);
-     const gaps = [min, ...positions, max];
-     let best = { width: -1, position: (min + max) / 2 };
-     for (let index = 1; index < gaps.length; index++) {
-       const width = gaps[index] - gaps[index - 1];
-       if (width > best.width) best = { width, position: (gaps[index] + gaps[index - 1]) / 2 };
-     }
-     setArmPosition(head, project.support, best.position);
-   }
+function setPedestalHeight(project, height) {
+  if (!Number.isFinite(height)) return;
+  const next = Math.max(48, Math.min(240, height));
+  const previous = project.support.pedestalHeight;
+  project.heads.filter(head => !head.poleMounted && !head.pedestrian && head.pedestalPosition > previous)
+    .forEach(head => { head.pedestalPosition += next - previous; });
+  project.support.pedestalHeight = next;
+  if (hasPedestal(project)) {
+    ensureArmPositions(project);
+    app.ensureStreetSignPositions(project);
+  }
+}
 
-   function canSpaceHeadsEvenly(project, start = 0, end = supportLength(project.support)) {
-     const heads = project.heads.filter(head => !hasSupport(project) || !head.poleMounted);
-     return hasSupport(project) && heads.length > 1
-       && heads.reduce((width, head) => width + headGeometry(head).width, 0) <= supportXAtPosition(project.support, end) - supportXAtPosition(project.support, start);
-   }
+function placeNewHead(project, head) {
+  if (!hasSupport(project) || hasPedestal(project) || head.poleMounted) return;
+  const { min, max } = armPositionBounds(head, project.support);
+  const positions = project.heads.filter(other => !other.poleMounted && other !== head && Number.isFinite(other.armPosition))
+    .map(other => Math.max(min, Math.min(max, other.armPosition))).sort((a, b) => a - b);
+  const gaps = [min, ...positions, max];
+  let best = { width: -1, position: (min + max) / 2 };
+  for (let index = 1; index < gaps.length; index++) {
+    const width = gaps[index] - gaps[index - 1];
+    if (width > best.width) best = { width, position: (gaps[index] + gaps[index - 1]) / 2 };
+  }
+  setArmPosition(head, project.support, best.position);
+}
+
+function canSpaceHeadsEvenly(project, start = 0, end = supportLength(project.support)) {
+  const heads = project.heads.filter(head => !hasSupport(project) || !head.poleMounted);
+  return hasSupport(project) && !hasPedestal(project) && heads.length > 1
+    && heads.reduce((width, head) => width + headGeometry(head).width, 0) <= supportXAtPosition(project.support, end) - supportXAtPosition(project.support, start);
+}
 
    function spaceHeadsEvenly(project, start = 0, end = supportLength(project.support)) {
      if (!canSpaceHeadsEvenly(project, start, end)) return false;
@@ -375,58 +429,77 @@
        return { sections: [], margin: 0, nativeWidth: width, width, height };
      }
 
-     const horizontal = !head.cluster && !head.hawk && head.orientation === 'horizontal';
-     const sections = head.indications.map(section => ({ ...app.dimensions.housing[section.size], indication: section }));
-     if (head.hawk) {
-       const rowHeight = Math.max(sections[0].height, sections[1].height);
-       const redSpacing = (sections[0].width + sections[1].width) / 2;
-       sections[0].x = -redSpacing / 2 - sections[0].width / 2;
-       sections[1].x = redSpacing / 2 - sections[1].width / 2;
-       for (let index = 0; index < 2; index++) sections[index].y = (rowHeight - sections[index].height) / 2;
-       sections[2].x = -sections[2].width / 2;
-       sections[2].y = rowHeight;
-     } else if (head.cluster) {
-       const leftWidth = Math.max(sections[1].width, sections[3].width);
-       const rightWidth = Math.max(sections[2].width, sections[4].width);
-       const rowHeight = Math.max(sections[1].height, sections[2].height);
-       sections[0].x = (rightWidth - leftWidth - sections[0].width) / 2;
-       sections[0].y = 0;
-       for (let index = 1; index < 5; index++) {
-         const left = index % 2 === 1;
-         const row = index < 3 ? 0 : 1;
-         const height = row ? Math.max(sections[3].height, sections[4].height) : rowHeight;
-         sections[index].x = (left ? -leftWidth / 2 : rightWidth / 2) - sections[index].width / 2;
-         sections[index].y = sections[0].height + (row ? rowHeight : 0) + (height - sections[index].height) / 2;
-       }
-     } else {
-       let y = 0;
-       sections.forEach(section => { section.x = -section.width / 2; section.y = y; y += section.height; });
-     }
-     const minX = Math.min(...sections.map(section => section.x));
-     const width = Math.max(...sections.map(section => section.x + section.width)) - minX;
-     const height = Math.max(...sections.map(section => section.y + section.height));
-     const margin = head.backplate === 'none' ? 0 : head.backplateMargin;
-     sections.forEach(section => {
-       section.x -= minX;
-       section.nativeX = section.x;
-       section.nativeY = section.y;
-       section.nativeWidth = section.width;
-       section.nativeHeight = section.height;
-       if (horizontal) {
-         const x = section.x;
-         section.x = section.y;
-         section.y = width - x - section.width;
-         [section.width, section.height] = [section.height, section.width];
-       }
-       section.x += margin;
-       section.y += margin;
-       section.cx = section.x + section.width / 2;
-       section.cy = section.y + section.height / 2;
-     });
-     return { sections, margin, nativeWidth: width,
-       width: (horizontal ? height : width) + 2 * margin,
-       height: (horizontal ? width : height) + 2 * margin };
-   }
+const horizontal = !head.cluster && !head.fourCluster && !head.dad && !head.hawk && head.orientation === 'horizontal';
+const sections = head.indications.map(section => ({ ...app.dimensions.housing[section.size], indication: section }));
+if (head.dad) {
+  const rowHeight = Math.max(sections[1].height, sections[2].height);
+  const pairWidth = sections[1].width + sections[2].width;
+  sections[0].x = -sections[0].width / 2;
+  sections[0].y = 0;
+  sections[1].x = -pairWidth / 2;
+  sections[2].x = sections[1].x + sections[1].width;
+  for (const section of sections.slice(1)) section.y = sections[0].height + (rowHeight - section.height) / 2;
+} else if (head.hawk) {
+  const rowHeight = Math.max(sections[0].height, sections[1].height);
+  const redSpacing = (sections[0].width + sections[1].width) / 2;
+  sections[0].x = -redSpacing / 2 - sections[0].width / 2;
+  sections[1].x = redSpacing / 2 - sections[1].width / 2;
+  for (let index = 0; index < 2; index++) sections[index].y = (rowHeight - sections[index].height) / 2;
+  sections[2].x = -sections[2].width / 2;
+  sections[2].y = rowHeight;
+} else if (head.fourCluster) {
+  const below = head.fourCluster === 'below';
+  const pair = below ? sections.slice(2) : sections.slice(0, 2);
+  const stem = below ? sections.slice(0, 2) : sections.slice(2);
+  const pairHeight = Math.max(...pair.map(section => section.height));
+  const center = (pair[1].width - pair[0].width) / 2;
+  let y = below ? 0 : pairHeight;
+  stem.forEach(section => { section.x = center - section.width / 2; section.y = y; y += section.height; });
+  pair.forEach((section, index) => {
+    section.x = index === 0 ? -section.width : 0;
+    section.y = (below ? y : 0) + (pairHeight - section.height) / 2;
+  });
+} else if (head.cluster) {
+  const leftWidth = Math.max(sections[1].width, sections[3].width);
+  const rightWidth = Math.max(sections[2].width, sections[4].width);
+  const rowHeight = Math.max(sections[1].height, sections[2].height);
+  sections[0].x = (rightWidth - leftWidth - sections[0].width) / 2;
+  sections[0].y = 0;
+  for (let index = 1; index < 5; index++) {
+    const left = index % 2 === 1;
+    const row = index < 3 ? 0 : 1;
+    const height = row ? Math.max(sections[3].height, sections[4].height) : rowHeight;
+    sections[index].x = (left ? -leftWidth / 2 : rightWidth / 2) - sections[index].width / 2;
+    sections[index].y = sections[0].height + (row ? rowHeight : 0) + (height - sections[index].height) / 2;
+  }
+} else {
+  let y = 0;
+  sections.forEach(section => { section.x = -section.width / 2; section.y = y; y += section.height; });
+}
+const minX = Math.min(...sections.map(section => section.x));
+const width = Math.max(...sections.map(section => section.x + section.width)) - minX;
+const height = Math.max(...sections.map(section => section.y + section.height));
+const margin = head.backplate === 'none' ? 0 : head.backplateMargin;
+sections.forEach(section => {
+  section.x -= minX;
+  section.nativeX = section.x;
+  section.nativeY = section.y;
+  section.nativeWidth = section.width;
+  section.nativeHeight = section.height;
+  if (horizontal) {
+    const x = section.x;
+    section.x = section.y;
+    section.y = width - x - section.width;
+    [section.width, section.height] = [section.height, section.width];
+  }
+  section.x += margin;
+  section.y += margin;
+  section.cx = section.x + section.width / 2;
+  section.cy = section.y + section.height / 2;
+});
+return { sections, margin, nativeWidth: width,
+  width: (horizontal ? height : width) + 2 * margin,
+  height: (horizontal ? width : height) + 2 * margin };
 
    function platePath(sections, margin, { rectangular = false, radius = 0 } = {}) {
      const rectangles = sections.map(section => ({ x: section.x - margin, y: section.y - margin,
@@ -493,14 +566,14 @@
        `${index ? `L${corners[index].entry} ` : ''}${r ? `A${r},${r} 0 0 ${convex ? 1 : 0} ${exit}` : `L${exit}`}`).join(' ')} Z `;
    }
 
-   function backplatePath(head, geometry, inset = 0) {
-     const rounded = head.backplateCorners === 'round';
-     inset = Math.max(0, Math.min(geometry.margin, inset));
-     return platePath(geometry.sections, geometry.margin - inset, {
-       rectangular: (head.hawk || head.indications.length === 5) && head.backplateFullRectangle === true,
-       radius: rounded ? Math.max(0, 2 - inset) : 0,
-     });
-   }
+function backplatePath(head, geometry, inset = 0) {
+  const rounded = head.backplateCorners === 'round';
+  inset = Math.max(0, Math.min(geometry.margin, inset));
+  return platePath(geometry.sections, geometry.margin - inset, {
+    rectangular: (head.dad || head.hawk || head.fourCluster || head.indications.length === 5) && head.backplateFullRectangle === true,
+    radius: rounded ? Math.max(0, 2 - inset) : 0,
+  });
+}
 
    function arrowPoints() {
      const arrow = app.dimensions.arrow;
@@ -544,12 +617,11 @@
        stroke: arrow.stroke * scale };
    }
 
-   Object.assign(app, { createHead, createIndication: indication, isBusSymbol, isWhiteDefaultSymbol, indicationColors, normalizePlateMargin, normalizeReflectiveWidth, trianglePoints, setIndicationSymbol, setCluster, setHawk, setHeadLayout, moveItem, restoreProject, normalizeAlignment,
-     normalizeMastAngle, normalizeMastBowAngle, mastBowWidth, setMastBowWidth, mastBowBounds, setMastBowPosition, normalizeSupport, hasMast, hasSpan, hasSupport, hasDrawing, supportLength,
-     mastCurve, supportXAtPosition, supportPositionAtX, supportProjectedLength, supportPositionBounds,
-     armPositionBounds, setArmPosition, ensureArmPositions, placeNewHead, canSpaceHeadsEvenly, spaceHeadsEvenly, mastGeometry, spanGeometry,
-     headGeometry, platePath, backplatePath, arrowPoints, symbolDimensions,
-     displayName: head => head.name.trim() || 'Untitled head',
-     escape: value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])),
-   });
- })();
+Object.assign(app, { createHead, createIndication: indication, isBusSymbol, isWhiteDefaultSymbol, indicationColors, normalizePlateMargin, normalizeReflectiveWidth, trianglePoints, setIndicationSymbol, setCluster, setHawk, setHeadLayout, moveItem, restoreProject, normalizeAlignment,
+  normalizeMastAngle, normalizeMastBowAngle, mastBowWidth, setMastBowWidth, mastBowBounds, setMastBowPosition, normalizeSupport, hasMast, hasSpan, hasPedestal, headPosition, setPedestalHeight, hasSupport, hasDrawing, supportLength,
+  mastCurve, supportXAtPosition, supportPositionAtX, supportProjectedLength, supportPositionBounds,
+  armPositionBounds, setArmPosition, ensureArmPositions, placeNewHead, canSpaceHeadsEvenly, spaceHeadsEvenly, mastGeometry, spanGeometry,
+  headGeometry, platePath, backplatePath, arrowPoints, symbolDimensions,
+  displayName: head => head.name.trim() || 'Untitled head',
+  escape: value => String(value).replace(/[&<>\"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])),
+});

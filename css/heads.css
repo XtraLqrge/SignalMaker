@@ -268,12 +268,16 @@ button.spacingRangeHandle:enabled:hover { background: #ffec66; }
 #headLayout button { white-space: normal; }
 
 /* Mast-arm selector uses the inherited panel-selector row and drag styles. */
-.mastSupport [data-select-mast-arm] { pointer-events: visiblePainted; cursor: pointer; }
-.mastSupport [data-select-mast-arm]:focus-visible { outline: 2px solid var(--textColor); }
+:is(.mastSupport, .spanSupport) [data-select-mast-arm] { pointer-events: visiblePainted; cursor: pointer; }
+:is(.mastSupport, .spanSupport) [data-select-mast-arm]:focus-visible { outline: 2px solid var(--textColor); }
 
-.mastSupport [data-select-mast-arm] { touch-action: none; cursor: grab; }
+:is(.mastSupport, .spanSupport) [data-select-mast-arm] { touch-action: none; cursor: grab; }
 .mastArmVisual { transform-box: fill-box; transform-origin: center; }
 .mastArmVisual.panelWiggle { animation: textEditorBlockWiggle 0.12s ease-in-out infinite alternate; animation-delay: var(--wiggle-delay, 0s); }
 .mastArmVisual.dragging { opacity: 0.5; cursor: grabbing; }
 .mastArmInsertion { position: absolute; width: 0.15rem; background: var(--selectedColor); pointer-events: none; z-index: 5; }
 @media (prefers-reduced-motion: reduce) { .mastArmVisual.panelWiggle { animation: none; } }
+
+/* Keep all six layouts in the inherited square choice group, in two rows. */
+#headLayout { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#headLayout button { height: auto; min-height: 2rem; font-size: 0.65rem; padding: 0.2rem; }

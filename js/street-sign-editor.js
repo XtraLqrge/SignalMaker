@@ -84,7 +84,7 @@
         <p id="blankoutAvailability" hidden>Blank-out is available for No Left Turn, No Right Turn, No Turn on Red, and Yield to Pedestrians.</p>
         ${select('regulatorySignDisplay', 'Display:', 'display', [['on', 'On'], ['off', 'Off']])}
       </div>
-      ${select('streetSignMounting', 'Mounting:', 'mounting', [['free-swinging', 'Free swinging'], ['direct', 'Mast arm mounted'], ['mast', 'Mast mounted']])}
+      ${select('streetSignMounting', 'Mounting:', 'mounting', [['free-swinging', 'Free swinging'], ['direct', 'Mast arm mounted'], ['mast', 'Mast mounted'], ['pedestal', 'Pedestal mounted']])}
       ${select('streetSignSpanSide', 'Signal Pole:', 'spanSide', [['left', 'Left'], ['right', 'Right']])}
       <div id="streetSignPositionOptions" class="fieldRow"><label for="streetSignPosition">Arm Position (ft):</label><div class="dimensionInputs"><input id="streetSignPosition" type="range" step="any" aria-label="Street sign position along mast arm in feet" /><input id="streetSignPositionValue" type="number" step="any" aria-label="Street sign position along mast arm in feet" /></div></div>
       <div id="streetSignAppearance"><hr />
@@ -275,12 +275,14 @@
         if (input.type === 'checkbox') { input.checked = Boolean(sign[input.dataset.streetField]); return; }
         if (document.activeElement !== input) input.value = span && input.dataset.streetField === 'mounting' ? 'free-swinging' : sign[input.dataset.streetField] ?? ({ signType: 'static', display: 'on' }[input.dataset.streetField] ?? '');
       });
-      get('streetSignMounting').disabled = span;
+      get('streetSignMounting').querySelector('[value="pedestal"]').disabled = !app.hasPedestal(project);
+      get('streetSignMounting').disabled = span || app.hasPedestal(project);
+      if (app.hasPedestal(project)) get('streetSignMounting').value = 'pedestal';
       mountingPicker.sync();
       get('streetSignSpanSide').parentElement.hidden = !span || regulatory;
       get('streetSignPositionOptions').hidden = !app.signCanMove(sign, project.support);
-      const poleMounted = app.isMastMountedSign(sign, project.support);
-      get('streetSignPositionOptions').querySelector('label').textContent = poleMounted ? 'Mast Height (ft):' : span ? 'Span Position (ft):' : 'Arm Position (ft):';
+      const poleMounted = app.isPoleMountedSign(sign, project.support);
+      get('streetSignPositionOptions').querySelector('label').textContent = poleMounted ? app.hasPedestal(project) ? 'Mount Height (ft):' : 'Mast Height (ft):' : span ? 'Span Position (ft):' : 'Arm Position (ft):';
       get('streetIconStyleOptions').hidden = !sign.icon;
       get('streetIconPadding').disabled = get('streetIconPaddingValue').disabled = !sign.iconExtendBackground && sign.iconBackground === 'Transparent';
       get('streetIconBackground').disabled = get('streetIconCorners').disabled = get('streetIconSquare').disabled = Boolean(sign.iconExtendBackground);
@@ -292,7 +294,7 @@
           const input = get(id);
           input.min = bounds.min / 12;
           input.max = bounds.max / 12;
-          input.setAttribute('aria-label', poleMounted ? 'Sign center height above the mast base in feet' : `Sign position along ${span ? 'span wire' : 'mast arm'} in feet`);
+          input.setAttribute('aria-label', poleMounted ? 'Sign center height above grade in feet' : `Sign position along ${span ? 'span wire' : 'mast arm'} in feet`);
           if (document.activeElement !== input) input.value = Number((app.streetSignPosition(sign, project.support) / 12).toFixed(3));
         }
       }
@@ -583,7 +585,7 @@
       if (['Enter', ' '].includes(event.key)) { event.preventDefault(); element.click(); }
       const sign = project.streetSigns.find(item => item.id === element.dataset.streetSignId);
       if (!sign || !app.signCanMove(sign, project.support)) return;
-      const poleMounted = app.isMastMountedSign(sign, project.support);
+      const poleMounted = app.isPoleMountedSign(sign, project.support);
       if (!(poleMounted ? ['ArrowUp', 'ArrowDown'] : ['ArrowLeft', 'ArrowRight']).includes(event.key)) return;
       event.preventDefault();
       const direction = poleMounted ? event.key === 'ArrowUp' ? 1 : -1
@@ -600,8 +602,8 @@
       const rect = element.getBoundingClientRect();
       const textTarget = event.target.closest('[data-street-row-id]');
       drag = { element, id: element.dataset.streetSignId, pointerId: event.pointerId, x: event.clientX, y: event.clientY, rect,
-        textHit: textTarget ? { rowId: textTarget.dataset.streetRowId, elementId: textTarget.dataset.streetElementId } : null,
-        vertical: app.isMastMountedSign(sign, project.support), position: app.streetSignPosition(sign, project.support),
+vertical: app.isPoleMountedSign(sign, project.support), position: app.streetSignPosition(sign, project.support),
+layout: app.scene(project), containerRect: get('headContainer').getBoundingClientRect() };
         layout: app.scene(project), containerRect: get('headContainer').getBoundingClientRect() };
       element.setPointerCapture(event.pointerId);
     });

@@ -68,7 +68,7 @@ app.removeMastArm(restored);
 assert.equal(restored.mastArms.length, 1);
 assert.equal(restored.heads[0].name, 'First arm');
 assert.equal((app.renderSVG(restored).match(/class="mastArm"/g) ?? []).length, 1);
-const singleCopy = { ...project, support: { ...project.support, type: 'none' }, heads: [original], streetSigns: [] };
+const singleCopy = { ...project, mastArms: [], activeMastArm: 0, support: { ...project.support, type: 'none' }, heads: [original], streetSigns: [] };
 assert.ok(!app.renderSVG(singleCopy).includes('Second arm'));
 console.log('Left default, independent mast arms, pole spacing, grade alignment, preview/export, restoration, removal and individual copy passed');
 // The existing drag and spacing-handle inverse mapping must still work within
