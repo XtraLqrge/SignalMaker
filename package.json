@@ -1,0 +1,19 @@
+{
+  "name": "signalmaker",
+  "version": "1.0.0",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "node tests/startup-integrity.cjs",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:check": "wrangler deploy --dry-run",
+    "test": "node --test tests/*.cjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.168.0"
+  }
+}

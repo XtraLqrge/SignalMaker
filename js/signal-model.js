@@ -157,8 +157,11 @@ function restoreProject(raw) {
       if (['above', 'below'].includes(head.fourCluster)) setFourCluster(clean, head.fourCluster);
       if (head.hawk === true && clean.indications.length === 3) setHawk(clean, true);
       if (head.dad === true) setDad(clean);
-      if (head.pedestrian === true && clean.poleMounted) {
+      if (head.pedestrian === true) {
+        const poleMounted = clean.poleMounted;
+        clean.poleMounted = true;
         setHeadLayout(clean, 'pedestrian');
+        clean.poleMounted = poleMounted;
         clean.pedestrianDisplay = head.pedestrianDisplay === 'walk' ? 'walk' : 'hand';
       }
       if (head.id === saved.selectedId && !restoredSelection) restoredSelection = clean.id;
@@ -500,6 +503,7 @@ sections.forEach(section => {
 return { sections, margin, nativeWidth: width,
   width: (horizontal ? height : width) + 2 * margin,
   height: (horizontal ? width : height) + 2 * margin };
+}
 
    function platePath(sections, margin, { rectangular = false, radius = 0 } = {}) {
      const rectangles = sections.map(section => ({ x: section.x - margin, y: section.y - margin,
@@ -625,3 +629,4 @@ Object.assign(app, { createHead, createIndication: indication, isBusSymbol, isWh
   displayName: head => head.name.trim() || 'Untitled head',
   escape: value => String(value).replace(/[&<>\"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])),
 });
+})();

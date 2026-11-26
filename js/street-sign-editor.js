@@ -602,8 +602,8 @@
       const rect = element.getBoundingClientRect();
       const textTarget = event.target.closest('[data-street-row-id]');
       drag = { element, id: element.dataset.streetSignId, pointerId: event.pointerId, x: event.clientX, y: event.clientY, rect,
-vertical: app.isPoleMountedSign(sign, project.support), position: app.streetSignPosition(sign, project.support),
-layout: app.scene(project), containerRect: get('headContainer').getBoundingClientRect() };
+        textHit: textTarget ? { rowId: textTarget.dataset.streetRowId, elementId: textTarget.dataset.streetElementId } : null,
+        vertical: app.isPoleMountedSign(sign, project.support), position: app.streetSignPosition(sign, project.support),
         layout: app.scene(project), containerRect: get('headContainer').getBoundingClientRect() };
       element.setPointerCapture(event.pointerId);
     });

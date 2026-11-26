@@ -66,8 +66,11 @@
 .dragGhost { position: fixed; margin: 0; z-index: 10; pointer-events: none; opacity: 0.8; }
 .dragGhost:has(.aplArrowListItem) { background: var(--hotbarColor); }
 .modals { z-index: 1; }
+@media (min-width: 769px) {
+  .modals { top: calc(var(--sm-site-nav-height) + 1.5rem); }
+}
 #headEditor { width: 24rem; --head-control-height: 1.4rem; }
-.editorContent { max-height: calc(100dvh - 8rem); }
+.editorContent { max-height: calc(100dvh - var(--sm-site-nav-height) - 8rem); }
 
 input, select {
   appearance: auto;
@@ -150,7 +153,7 @@ legend { padding: 0 0.25rem; }
 hr { border: 0; border-top: 1px solid rgba(var(--baseColor), 0.45); margin: 0.75rem 0; }
 #headEditorEmpty button { margin-top: 0.5rem; }
 
-.headsMenu { width: min(16rem, calc(100vw - 1rem)); max-height: calc(100dvh - 5rem); overflow-y: auto; }
+.headsMenu { width: min(16rem, calc(100vw - 1rem)); max-height: calc(100dvh - var(--sm-site-nav-height) - 5rem); overflow-y: auto; }
 .headActions { margin-top: 0.5rem; }
 .headActions button { flex: 1; padding: 0.25rem; }
 .headPopoverHeader { display: flex; align-items: baseline; justify-content: space-between; gap: 0.25rem; width: 100%; }

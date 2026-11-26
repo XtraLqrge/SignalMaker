@@ -179,6 +179,158 @@ function headScene(project) {
   return { heads, width: Math.max(1, x - (heads.length ? project.spacing : 0)), height };
 }
 
+  function singleScene(project) {
+    const layout = headScene(project);
+    const signs = (project.streetSigns ?? []).map(sign => ({ sign, geometry: app.streetSignGeometry(sign) }));
+    const poleLevels = { left: 0, right: 0 };
+    let freeX = project.heads.length ? layout.width + project.spacing : 0;
+    signs.forEach(item => {
+      const { sign, geometry } = item;
+      if (layout.pedestal) {
+        const bounds = app.streetSignBounds(sign, project.support);
+        const position = Math.max(bounds.min, Math.min(bounds.max, sign.pedestalPosition ?? bounds.max));
+        item.poleX = layout.pedestal.poleX;
+        item.x = item.poleX - geometry.width / 2;
+        item.y = layout.pedestal.height - position - geometry.height / 2;
+        item.mounting = 'pedestal';
+      } else if (layout.mast) {
+        const mast = layout.mast;
+        if (app.isPoleMountedSign(sign, project.support)) {
+          const bounds = app.streetSignBounds(sign, project.support);
+          const height = Math.max(bounds.min, Math.min(bounds.max, sign.poleHeight ?? bounds.max));
+          item.poleX = layout.reversed ? mast.width - mast.poleX : mast.poleX;
+          item.poleHeight = height;
+          item.x = item.poleX - geometry.width / 2;
+          item.mountY = app.dimensions.mast.poleHeight - height + mast.offsetY;
+          item.y = item.mountY - geometry.height / 2;
+          item.mounting = 'mast';
+          return;
+        }
+        const bounds = app.streetSignBounds(sign, project.support);
+        const position = Math.max(bounds.min, Math.min(bounds.max, sign.armPosition ?? Math.min(96, project.support.length / 2)));
+        const mount = mast.armAt(position);
+        const center = mount.x;
+        item.x = (layout.reversed ? mast.width - center : center) - geometry.width / 2;
+        item.mountY = mount.y + mast.offsetY;
+        const hangers = [0.2, 0.8].map(fraction => {
+          const distance = mast.positionAtX(center - mast.armX + (layout.reversed ? -1 : 1) * geometry.width * (fraction - 0.5));
+          const point = mast.armAt(distance);
+          const diameter = mast.armBaseDiameter + (mast.armTipDiameter - mast.armBaseDiameter) * distance / project.support.length;
+          return { y: point.y + mast.offsetY, clearance: diameter / (2 * point.cos) + 12 };
+        });
+        item.hangerY = hangers.map(hanger => hanger.y - 4);
+        item.y = sign.mounting === 'direct' ? item.mountY - geometry.height / 2
+          : Math.max(...hangers.map(hanger => hanger.y + hanger.clearance));
+        item.mounting = sign.mounting;
+      } else if (layout.span) {
+        const span = layout.span;
+        if (app.isRegulatorySign(sign)) {
+          const bounds = app.streetSignBounds(sign, project.support);
+          const position = Math.max(bounds.min, Math.min(bounds.max, sign.spanPosition ?? project.support.spanLength / 2));
+          item.x = span.spanX + position - geometry.width / 2;
+          const positions = [0.2, 0.8].map(fraction => position + geometry.width * (fraction - 0.5));
+          item.hangerY = positions.map(distance => span.upperAt(distance));
+          item.lowerHangerY = positions.map(distance => span.lowerAt(distance));
+          item.mountY = span.lowerAt(position);
+          item.y = Math.max(...item.lowerHangerY) + 8;
+          item.mounting = 'free-swinging';
+          item.wireMounted = true;
+// in #sm-links
+// in #sm-links
+          return;
+        }
+        const right = sign.spanSide !== 'left';
+        item.poleX = right ? span.rightX : span.leftX;
+        item.mountY = span.lowerAt(right ? project.support.spanLength : 0) + 60 + poleLevels[right ? 'right' : 'left'];
+        item.x = right ? item.poleX - 12 - geometry.width : item.poleX + 12;
+        item.y = item.mountY + 10;
+        item.mounting = 'free-swinging';
+        poleLevels[right ? 'right' : 'left'] += geometry.height + 42;
+      } else {
+        item.x = freeX;
+        item.y = Math.max(0, (layout.height - geometry.height) / 2);
+        freeX += geometry.width + project.spacing;
+        item.mounting = 'none';
+      }
+    });
+    layout.streetSigns = signs;
+    if (!signs.length && !layout.pedestal && !layout.mast && !layout.heads.some(item => item.head.poleMounted)) return layout;
+    const envelopes = [...layout.heads, ...signs];
+    // Reserve both side-bracket envelopes even for direct mounting, so
+    // changing a pole head's mount does not change the assembly fit scale.
+    const poleEnvelopes = layout.pedestal ? layout.heads.filter(item => item.head.poleMounted || item.head.pedestrian).map(item => {
+      const reach = 2.25 + 6 + item.geometry.width;
+      return { left: layout.pedestal.poleX - reach, right: layout.pedestal.poleX + reach };
+    }) : layout.mast ? layout.heads.filter(item => item.head.poleMounted).map(item => {
+      const mast = layout.mast;
+      const poleX = layout.reversed ? mast.width - mast.poleX : mast.poleX;
+      const reach = mast.poleDiameter / 2 + 6 + item.geometry.width;
+      return { left: poleX - reach, right: poleX + reach };
+    }) : layout.span ? layout.heads.filter(item => item.head.poleMounted).map(item => {
+      const right = item.head.spanPole === 'right';
+      const poleX = right ? layout.span.rightX : layout.span.leftX;
+      const width = project.support[right ? 'rightPostWidth' : 'leftPostWidth'];
+      const reach = width / 2 + 6 + item.geometry.width;
+      return { left: poleX - reach, right: poleX + reach };
+    }) : [];
+    const left = Math.min(0, ...envelopes.map(item => item.x), ...poleEnvelopes.map(item => item.left));
+    const top = Math.min(0, ...envelopes.map(item => item.y));
+    const right = Math.max(layout.width, ...envelopes.map(item => item.x + item.geometry.width), ...poleEnvelopes.map(item => item.right));
+    const bottom = Math.max(layout.height, ...envelopes.map(item => item.y + item.geometry.height));
+    layout.supportOffset = { x: -left, y: -top };
+    [...layout.heads, ...signs].forEach(item => { item.x -= left; item.y -= top; });
+    layout.heads.forEach(item => { if (item.mountY != null) item.mountY -= top; });
+    signs.forEach(item => { if (item.mountY != null) item.mountY -= top; if (item.poleX != null) item.poleX -= left; });
+    signs.forEach(item => { if (item.hangerY) item.hangerY = item.hangerY.map(y => y - top); });
+    signs.forEach(item => { if (item.lowerHangerY) item.lowerHangerY = item.lowerHangerY.map(y => y - top); });
+    layout.width = right - left;
+    layout.height = bottom - top;
+    if (layout.supportStart != null) layout.supportStart = layout.reversed
+      ? layout.width - (layout.mast.width - layout.mast.armX - left) : layout.supportStart - left;
+    return layout;
+  }
+
+  // Reference pole and grade in each local layout. A span contributes both
+  // posts; spacing to the next assembly starts at its right post.
+  function supportAnchor(layout) {
+    const offset = layout.supportOffset ?? { x: 0, y: 0 };
+    if (layout.mast) return { x: (layout.reversed ? layout.mast.width - layout.mast.poleX : layout.mast.poleX) + offset.x,
+      grade: app.dimensions.mast.poleHeight + layout.mast.offsetY + offset.y, span: 0 };
+    if (layout.span) return { x: layout.span.leftX + offset.x, grade: layout.span.height + offset.y,
+      span: layout.span.rightX - layout.span.leftX };
+    if (layout.pedestal) return { x: layout.pedestal.poleX + offset.x, grade: layout.pedestal.height + offset.y, span: 0 };
+    return { x: layout.width / 2, grade: layout.height, span: 0 };
+  }
+
+  function scene(project) {
+    const projects = app.mastArmProjects?.(project) ?? [project];
+    if (projects.length < 2) return singleScene(project);
+    const spacing = project.mastArmSpacing ?? 720;
+    let nextPole = 0;
+    const assemblies = projects.map((assembly, index) => {
+      const layout = singleScene(assembly);
+      const anchor = supportAnchor(layout);
+      const item = { project: assembly, layout, index, x: nextPole - anchor.x, y: -anchor.grade };
+      nextPole += anchor.span + spacing;
+      return item;
+    });
+    const left = Math.min(...assemblies.map(item => item.x));
+    const top = Math.min(...assemblies.map(item => item.y));
+    const width = Math.max(...assemblies.map(item => item.x + item.layout.width)) - left;
+    const height = Math.max(...assemblies.map(item => item.y + item.layout.height)) - top;
+    assemblies.forEach(item => { item.x -= left; item.y -= top; });
+    const selected = assemblies[project.activeMastArm ?? 0];
+    const active = selected.layout;
+    return { ...active, assemblies, width, height,
+      supportOffset: { x: selected.x + (active.supportOffset?.x ?? 0), y: selected.y + (active.supportOffset?.y ?? 0) },
+      supportStart: active.supportStart == null ? undefined : active.reversed ? width - selected.x - active.width + active.supportStart : selected.x + active.supportStart,
+      heads: assemblies.flatMap(item => item.layout.heads.map(head => ({ ...head,
+        x: head.x + item.x, y: head.y + item.y, mastArmIndex: item.index, assemblySupport: item.project.support }))),
+      streetSigns: assemblies.flatMap(item => item.layout.streetSigns.map(sign => ({ ...sign,
+        x: sign.x + item.x, y: sign.y + item.y, mastArmIndex: item.index, assemblySupport: item.project.support }))),
+    };
+  }
+
    function tone(color, amount) {
      return `#${[1, 3, 5].map(offset => {
        const value = parseInt(color.slice(offset, offset + 2), 16);
@@ -398,7 +550,7 @@ function renderPreview(project) {
     `<div class="previewHead" data-head-id="${head.id}" ${mastArmIndex == null ? '' : `data-mast-arm-index="${mastArmIndex}"`} role="button" tabindex="0" draggable="true" ${assemblySupport.type !== 'none' && (head.poleMounted || assemblySupport.type === 'pedestal') ? 'aria-keyshortcuts="ArrowUp ArrowDown" title="Drag vertically on the pole; up/down arrow keys also move this head"' : assemblySupport.type !== 'none' ? 'aria-keyshortcuts="ArrowLeft ArrowRight" title="Drag along the support; left/right arrow keys also move this head"' : ''} aria-label="Edit ${app.escape(app.displayName(head))}" aria-pressed="${head.id === project.selectedId}">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${geometry.width} ${geometry.height}" aria-hidden="true">${headMarkup(head, geometry)}</svg>
     </div>`).join('')}${(layout.streetSigns ?? []).map(({ sign, geometry, mastArmIndex, mounting, assemblySupport = project.support }) =>
-    `<div class="previewStreetSign${app.isRegulatorySign(sign) ? ' regulatorySign' : ''}${app.signCanMove(sign, assemblySupport) ? ' movableSign' : ''}" data-street-sign-id="${sign.id}" ${mastArmIndex == null ? '' : `data-mast-arm-index="${mastArmIndex}"`} role="button" tabindex="0" aria-label="Edit ${app.escape(sign.name)}${geometry.regulatory ? app.escape(' — ' + geometry.regulatory.name) : ''}" aria-pressed="${sign.id === project.selectedStreetSignId}" ${app.signCanMove(sign, assemblySupport) ? (mounting === 'mast' || mounting === 'pedestal') ? 'data-drag-axis="vertical" aria-keyshortcuts="ArrowUp ArrowDown" title="Drag vertically on the pole; up/down arrow keys also move this sign"' : 'aria-keyshortcuts="ArrowLeft ArrowRight" title="Drag along the support; left/right arrow keys also move this sign"' : ''}><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${geometry.width} ${geometry.height}" aria-hidden="true">${app.streetSignMarkup(sign, geometry)}</svg></div>`).join('')}</div>`;
+    `<div class="previewStreetSign${app.isRegulatorySign(sign) ? ' regulatorySign' : ''}${app.signCanMove(sign, assemblySupport) ? ' movableSign' : ''}" data-street-sign-id="${sign.id}" ${mastArmIndex == null ? '' : `data-mast-arm-index="${mastArmIndex}"`} role="button" tabindex="0" aria-label="Edit ${app.escape(sign.name)}${geometry.regulatory ? app.escape(' — ' + geometry.regulatory.name) : ''}" aria-pressed="${sign.id === project.selectedStreetSignId}" ${app.signCanMove(sign, assemblySupport) ? (mounting === 'mast' || mounting === 'pedestal') ? 'data-drag-axis="vertical" aria-keyshortcuts="ArrowUp ArrowDown" title="Drag vertically on the pole; up/down arrow keys also move this sign"' : 'aria-keyshortcuts="ArrowLeft ArrowRight" title="Drag along the support; left/right arrow keys also move this sign"' : ''}><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${geometry.width} ${geometry.height}" aria-hidden="true">${app.streetSignMarkup(sign, geometry, true)}</svg></div>`).join('')}</div>`;
 }
 
    // Use the same signal artwork for the white symbol-picker previews.
@@ -407,3 +559,4 @@ function renderPreview(project) {
    }
 
 Object.assign(app, { supportAnchor, scene, renderSVG, renderPreview, renderSymbolIcon });
+})();

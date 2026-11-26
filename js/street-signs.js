@@ -467,8 +467,7 @@
     });
     return styles.length ? svg.replace(/(<svg\b[^>]*>)/, `$1<defs><style>${styles.join('')}</style></defs>`) : svg;
   }
-Object.assign(app, { streetPalette: palette, streetFonts: fonts, streetFontFiles: fontFiles, createStreetText, createStreetScript, createStreetAffix, streetTextChildren, addStreetTextElement, removeStreetTextElement, selectedStreetText, createStreetSign,
+Object.assign(app, { streetPalette: palette, streetFonts: fonts, streetFontFiles: fontFiles, createStreetText, createStreetScript, createStreetAffix, streetTextChildren, addStreetTextElement, removeStreetTextElement, selectedStreetText, selectStreetTextElement, createStreetSign,
   regulatoryDesign, isRegulatorySign, canBlankOut, isBlankOut, signCanMove, isPoleMountedSign, isMastMountedSign: isPoleMountedSign, streetSignPosition, streetSignDragPosition,
   restoreStreetIcon, restoreRegulatoryImage, restoreStreetSigns, streetFont, streetSignGeometry, streetSignBounds, setStreetSignPosition, ensureStreetSignPositions, streetSignMarkup, embedStreetSignFonts });
-    restoreStreetIcon, restoreRegulatoryImage, restoreStreetSigns, streetFont, streetSignGeometry, streetSignBounds, setStreetSignPosition, ensureStreetSignPositions, streetSignMarkup, embedStreetSignFonts });
 })();

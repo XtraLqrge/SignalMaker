@@ -1,0 +1,14 @@
+*
+!index.html
+!LICENSE
+!css/
+!css/**
+!js/
+!js/**
+!fonts/
+!fonts/**
+!assets/
+!assets/**
+
+**/.DS_Store
+**/._*

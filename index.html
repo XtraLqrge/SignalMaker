@@ -8,29 +8,36 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50' y='86' font-size='86' text-anchor='middle'%3E%F0%9F%9A%A6%3C/text%3E%3C/svg%3E" />
   <script src="js/dimensions.js?v=20261012-triangle-colors"></script>
   <script src="js/regulatory-sign-data.js"></script>
-  <script src="js/street-font-data.js?v=20261027-affixes"></script>
-  <script src="js/street-signs.js?v=20261027-affix-sizes"></script>
-  <script src="js/signal-model.js?v=20261027-editing"></script>
-  <script src="js/mast-approach.js"></script>
-  <script src="js/signal-renderer.js?v=20261027-text-picking"></script>
+  <script src="js/street-font-data.js?v=20261125-startup"></script>
+  <script src="js/street-signs.js?v=20261125-startup"></script>
+  <script src="js/signal-model.js?v=20261125-startup"></script>
+  <script src="js/mast-approach.js?v=20261125-startup"></script>
+  <script src="js/signal-renderer.js?v=20261125-startup"></script>
   <script src="js/mast-drag.js?v=20261027-editing"></script>
   <script src="js/head-clipboard.js?v=20261027-editing"></script>
   <script src="js/head-editor.js?v=20261027-editing"></script>
   <script src="js/street-icon-data.js"></script>
   <script src="js/street-icon-picker.js"></script>
   <script src="js/native-select.js?v=20261015-font-picker"></script>
-  <script src="js/street-sign-editor.js?v=20261027-affix-sizes"></script>
+  <script src="js/street-sign-editor.js?v=20261125-startup"></script>
   <script src="js/history.js?v=20261027-editing"></script>
   <script src="js/templates.js?v=20261027-affixes"></script>
   <script src="js/main.js?v=20261027-editing"></script>
-  <link href="css/page.css" rel="stylesheet" />
+  <link href="css/page.css?v=20261125-site-navigation" rel="stylesheet" />
   <link href="css/form.css?v=20261015-color-pickers" rel="stylesheet" />
-  <link href="css/heads.css?v=20261012-symbol-spacing" rel="stylesheet" />
+  <link href="css/heads.css?v=20261125-site-navigation" rel="stylesheet" />
   <link href="css/street-signs.css?v=20261027-text-picking" rel="stylesheet" />
   <link href="css/templates.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
 </head>
 <body>
+  <nav class="site-navigation" aria-label="Site navigation">
+    <a href="./" aria-current="page">SignalMaker</a>
+    <a href="https://hwysignmaker.com/">SignMaker</a>
+    <a href="https://stripe.hwysignmaker.com">StripeMaker</a>
+    <a href="https://discord.gg/dgqGZAeZvF">Discord</a>
+    <a href="https://mutcd.fhwa.dot.gov/pdfs/11th_Edition/mutcd11thedition.pdf">MUTCD</a>
+  </nav>
   <main id="workspace" aria-label="Signal preview">
     <div id="previewStage"></div>
   </main>
@@ -234,7 +241,7 @@
 <!-- in #sm-links -->
     <a class="configOption mutcd-link"
       href="https://mutcd.fhwa.dot.gov/pdfs/11th_Edition/mutcd11thedition.pdf"
-      target="_blank" rel="noopener noreferrer" aria-label="MUTCD" title="MUTCD">
+      aria-label="MUTCD" title="MUTCD">
       <span class="material-symbols-outlined" aria-hidden="true">menu_book</span>
       <span class="configLabel">MUTCD</span>
     </a>
